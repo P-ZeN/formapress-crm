@@ -1,0 +1,24 @@
+/**
+ * FormaPress Color Variables
+ *
+ * These CSS variables are dynamically injected by the parent zformations plugin.
+ * DO NOT hardcode colors - use these variables so customers can theme.
+ */
+
+$color_orange: var(--zform_color_orange);
+$color_bleu2: var(--zform_color_bleu2);
+$color_bleu2_light_10: var(--zform_color_bleu2_light_10);
+$color_bleu2_light_15: var(--zform_color_bleu2_light_15);
+$color_bleu2_light_25: var(--zform_color_bleu2_light_25);
+$color_bleu2_light_35: var(--zform_color_bleu2_light_35);
+$color_bleu2_light_45: var(--zform_color_bleu2_light_45);
+$color_bleu2_dark_10: var(--zform_color_bleu2_dark_10);
+$color_bleu2_dark_20: var(--zform_color_bleu2_dark_20);
+$color_turquoise: var(--zform_color_turquoise);
+$color_orange2: var(--zform_color_orange2);
+$color_bleu: var(--zform_color_bleu);
+$bg: var(--zform_bg);
+$text: var(--zform_text);
+$gray: var(--zform_gray);
+$lightgray: var(--zform_lightgray);
+$blue: var(--zform_blue);

@@ -1,0 +1,16 @@
+{
+  "name": "formapress-crm-dev",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Build: npm run dev (watch) | npm run build (production)",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "sass": "^1.69.0",
+    "sass-embedded": "^1.83.0",
+    "terser": "^5.24.0"
+  }
+}

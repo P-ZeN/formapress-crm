@@ -1,0 +1,167 @@
+/**
+ * Quick Add Modal - Simple person/opportunity creation
+ */
+@use "../variables" as *;
+
+.crm-quick-add-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+
+    &.active {
+        opacity: 1;
+        pointer-events: all;
+    }
+
+    .modal-content {
+        background: #fff;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+        transform: scale(0.9);
+        transition: transform 0.3s ease;
+    }
+
+    &.active .modal-content {
+        transform: scale(1);
+    }
+
+    .modal-header {
+        padding: 20px 25px;
+        border-bottom: 2px solid #f0f0f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+
+        h2 {
+            margin: 0;
+            color: $color_bleu;
+            font-size: 20px;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 24px;
+            color: #999;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+
+            &:hover {
+                color: $color_orange;
+            }
+        }
+    }
+
+    .modal-body {
+        padding: 25px;
+
+        .form-group {
+            margin-bottom: 20px;
+
+            label {
+                display: block;
+                font-weight: 600;
+                margin-bottom: 8px;
+                color: #333;
+                font-size: 14px;
+
+                .required {
+                    color: $color_orange;
+                }
+            }
+
+            input[type="text"],
+            input[type="email"],
+            input[type="tel"],
+            input[type="number"],
+            select,
+            textarea {
+                width: 100%;
+                padding: 10px 15px;
+                border: 2px solid #e0e0e0;
+                border-radius: 4px;
+                font-size: 14px;
+                transition: border-color 0.2s ease;
+
+                &:focus {
+                    outline: none;
+                    border-color: $color_turquoise;
+                }
+            }
+
+            textarea {
+                min-height: 80px;
+                resize: vertical;
+            }
+
+            .hint {
+                font-size: 12px;
+                color: #999;
+                margin-top: 5px;
+            }
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+    }
+
+    .modal-footer {
+        padding: 20px 25px;
+        border-top: 2px solid #f0f0f0;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+
+        button {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+
+            &.btn-cancel {
+                background: #f0f0f0;
+                color: #666;
+
+                &:hover {
+                    background: #e0e0e0;
+                }
+            }
+
+            &.btn-save {
+                background: $color_turquoise;
+                color: #fff;
+
+                &:hover {
+                    background: $color_bleu2_dark_10;
+                }
+
+                &:disabled {
+                    background: #ccc;
+                    cursor: not-allowed;
+                }
+            }
+        }
+    }
+}

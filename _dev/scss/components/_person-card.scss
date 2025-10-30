@@ -1,0 +1,123 @@
+/**
+ * Person Card Component
+ */
+@use "../variables" as *;
+
+.crm-person-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+
+    .person-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+        padding-bottom: 20px;
+        border-bottom: 2px solid #f0f0f0;
+
+        .person-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: $color_bleu2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 24px;
+            font-weight: 600;
+        }
+
+        .person-info {
+            flex: 1;
+
+            .person-name {
+                font-size: 18px;
+                font-weight: 600;
+                color: $color_bleu;
+                margin-bottom: 5px;
+            }
+
+            .person-type {
+                display: inline-block;
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 600;
+                text-transform: uppercase;
+
+                &.type-lead {
+                    background: rgba($color_orange, 0.1);
+                    color: $color_orange;
+                }
+
+                &.type-customer {
+                    background: rgba($color_turquoise, 0.1);
+                    color: $color_turquoise;
+                }
+
+                &.type-trainee {
+                    background: rgba($color_bleu, 0.1);
+                    color: $color_bleu;
+                }
+            }
+        }
+    }
+
+    .person-details {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+
+        .detail-item {
+            .detail-label {
+                font-size: 11px;
+                color: #999;
+                text-transform: uppercase;
+                margin-bottom: 5px;
+            }
+
+            .detail-value {
+                font-size: 14px;
+                color: #333;
+
+                a {
+                    color: $color_bleu;
+                    text-decoration: none;
+
+                    &:hover {
+                        color: $color_orange;
+                    }
+                }
+            }
+        }
+    }
+
+    .person-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 15px;
+        margin-top: 20px;
+        padding-top: 20px;
+        border-top: 2px solid #f0f0f0;
+
+        .stat-item {
+            text-align: center;
+
+            .stat-value {
+                font-size: 24px;
+                font-weight: 600;
+                color: $color_bleu;
+            }
+
+            .stat-label {
+                font-size: 11px;
+                color: #999;
+                text-transform: uppercase;
+                margin-top: 5px;
+            }
+        }
+    }
+}

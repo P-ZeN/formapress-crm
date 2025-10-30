@@ -1,0 +1,131 @@
+/**
+ * Kanban Board - Drag & Drop Pipeline
+ */
+@use "../variables" as *;
+
+.crm-kanban-board {
+    display: flex;
+    gap: 15px;
+    padding: 20px 0;
+    min-height: 500px;
+
+    .kanban-column {
+        flex: 1;
+        min-width: 280px;
+        background: #f5f5f5;
+        border-radius: 8px;
+        padding: 15px;
+
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: $color_bleu2;
+            color: #fff;
+            border-radius: 6px;
+            margin-bottom: 15px;
+
+            .column-title {
+                font-weight: 600;
+                font-size: 14px;
+            }
+
+            .column-count {
+                background: rgba(255, 255, 255, 0.2);
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 12px;
+            }
+        }
+
+        .kanban-cards {
+            min-height: 100px;
+
+            &.drag-over {
+                background: rgba($color_turquoise, 0.1);
+                border-radius: 4px;
+            }
+        }
+
+        .kanban-card {
+            background: #fff;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 6px;
+            border-left: 4px solid $color_orange;
+            cursor: grab;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+
+            &:hover {
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+                transform: translateY(-2px);
+            }
+
+            &.dragging {
+                opacity: 0.5;
+                cursor: grabbing;
+            }
+
+            .card-title {
+                font-weight: 600;
+                font-size: 14px;
+                color: $color_bleu;
+                margin-bottom: 8px;
+
+                &:hover {
+                    color: $color_orange;
+                }
+            }
+
+            .card-company {
+                font-size: 12px;
+                color: #666;
+                margin-bottom: 10px;
+            }
+
+            .card-value {
+                font-size: 18px;
+                font-weight: 600;
+                color: $color_orange;
+                margin-bottom: 8px;
+            }
+
+            .card-footer {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 11px;
+                color: #999;
+                margin-top: 10px;
+                padding-top: 10px;
+                border-top: 1px solid #f0f0f0;
+
+                .card-date {
+                    // Expected close date
+                }
+
+                .card-owner {
+                    // Assigned person
+                }
+            }
+        }
+
+        .add-card-btn {
+            width: 100%;
+            padding: 10px;
+            background: transparent;
+            border: 2px dashed #ddd;
+            border-radius: 6px;
+            color: #999;
+            cursor: pointer;
+            font-size: 13px;
+
+            &:hover {
+                border-color: $color_turquoise;
+                color: $color_turquoise;
+            }
+        }
+    }
+}
