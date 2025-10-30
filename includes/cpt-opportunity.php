@@ -93,20 +93,40 @@ add_action( 'add_meta_boxes_crm_opportunity', 'formapress_crm_add_opportunity_me
 function formapress_crm_opportunity_details_meta_box_html( $post ) {
 	wp_nonce_field( 'formapress_crm_save_opportunity_meta_data', 'formapress_crm_opportunity_meta_nonce' );
 
-	$status     = get_post_meta( $post->ID, '_crm_opportunity_status', true );
+	$stage      = get_post_meta( $post->ID, '_crm_opportunity_stage', true );
 	$value      = get_post_meta( $post->ID, '_crm_opportunity_value', true );
 	$close_date = get_post_meta( $post->ID, '_crm_opportunity_close_date', true );
-	// Add more fields like probability, stage, etc. as needed.
+
+	// Define pipeline stages for Kanban board.
+	$stages = array(
+		'new'         => __( 'New Lead', 'formapress-crm' ),
+		'qualified'   => __( 'Qualified', 'formapress-crm' ),
+		'proposal'    => __( 'Proposal Sent', 'formapress-crm' ),
+		'negotiation' => __( 'Negotiation', 'formapress-crm' ),
+		'won'         => __( 'Won', 'formapress-crm' ),
+		'lost'        => __( 'Lost', 'formapress-crm' ),
+	);
+
+	// Default to 'new' if not set.
+	if ( empty( $stage ) ) {
+		$stage = 'new';
+	}
 
 	?>
 	<p>
-		<label for="crm_opportunity_status"><?php esc_html_e( 'Status', 'formapress-crm' ); ?>:</label><br />
-		<input type="text" id="crm_opportunity_status" name="crm_opportunity_status" value="<?php echo esc_attr( $status ); ?>" class="widefat" />
-		<small><?php esc_html_e( 'E.g., Prospecting, Qualification, Proposal, Negotiation, Closed Won, Closed Lost', 'formapress-crm' ); ?></small>
+		<label for="crm_opportunity_stage"><?php esc_html_e( 'Pipeline Stage', 'formapress-crm' ); ?>: <strong style="color: #d63638;">*</strong></label><br />
+		<select id="crm_opportunity_stage" name="crm_opportunity_stage" class="widefat" required>
+			<?php foreach ( $stages as $stage_key => $stage_label ) : ?>
+				<option value="<?php echo esc_attr( $stage_key ); ?>" <?php selected( $stage, $stage_key ); ?>>
+					<?php echo esc_html( $stage_label ); ?>
+				</option>
+			<?php endforeach; ?>
+		</select>
+		<small><?php esc_html_e( 'Current position in sales pipeline (drag cards in Kanban view)', 'formapress-crm' ); ?></small>
 	</p>
 	<p>
-		<label for="crm_opportunity_value"><?php esc_html_e( 'Estimated Value', 'formapress-crm' ); ?>:</label><br />
-		<input type="number" step="0.01" id="crm_opportunity_value" name="crm_opportunity_value" value="<?php echo esc_attr( $value ); ?>" class="widefat" />
+		<label for="crm_opportunity_value"><?php esc_html_e( 'Estimated Value (€)', 'formapress-crm' ); ?>:</label><br />
+		<input type="number" step="0.01" id="crm_opportunity_value" name="crm_opportunity_value" value="<?php echo esc_attr( $value ); ?>" class="widefat" placeholder="0.00" />
 	</p>
 	<p>
 		<label for="crm_opportunity_close_date"><?php esc_html_e( 'Expected Close Date', 'formapress-crm' ); ?>:</label><br />
@@ -158,7 +178,7 @@ function formapress_crm_save_opportunity_meta_data( $post_id ) {
 
 	// Sanitize and save Opportunity Details.
 	$fields_to_save = array(
-		'crm_opportunity_status'     => '_crm_opportunity_status',
+		'crm_opportunity_stage'      => '_crm_opportunity_stage',
 		'crm_opportunity_value'      => '_crm_opportunity_value',
 		'crm_opportunity_close_date' => '_crm_opportunity_close_date',
 		'crm_associated_person_id'   => '_crm_associated_person_id',

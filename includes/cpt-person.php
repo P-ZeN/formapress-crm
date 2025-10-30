@@ -128,43 +128,30 @@ add_action( 'add_meta_boxes_crm_person', 'formapress_crm_add_person_meta_boxes' 
 
 /**
  * Renders the HTML for the Person Details meta box.
+ * SIMPLIFIED: Only essential fields for 30-second contact creation.
  *
  * @param WP_Post $post The current post object.
  */
 function formapress_crm_person_details_meta_box_html( $post ) {
 	wp_nonce_field( 'formapress_crm_save_person_meta_data', 'formapress_crm_person_meta_nonce' );
 
-	$civility    = get_post_meta( $post->ID, '_crm_civility', true );
-	$email       = get_post_meta( $post->ID, '_crm_email', true );
-	$phone       = get_post_meta( $post->ID, '_crm_phone', true );
-	$job_title   = get_post_meta( $post->ID, '_crm_job_title', true );
-	$user_id     = get_post_meta( $post->ID, '_crm_user_id', true );
-	$lead_source = get_post_meta( $post->ID, '_crm_lead_source', true );
+	$email     = get_post_meta( $post->ID, '_crm_email', true );
+	$phone     = get_post_meta( $post->ID, '_crm_phone', true );
+	$job_title = get_post_meta( $post->ID, '_crm_job_title', true );
 
 	?>
 	<p>
-		<label for="crm_civility"><?php esc_html_e( 'Civility (e.g., Mr., Ms., Dr.)', 'formapress-crm' ); ?>:</label><br />
-		<input type="text" id="crm_civility" name="crm_civility" value="<?php echo esc_attr( $civility ); ?>" class="widefat" />
-	</p>
-	<p>
-		<label for="crm_email"><?php esc_html_e( 'Email', 'formapress-crm' ); ?>:</label><br />
-		<input type="email" id="crm_email" name="crm_email" value="<?php echo esc_attr( $email ); ?>" class="widefat" />
+		<label for="crm_email"><?php esc_html_e( 'Email', 'formapress-crm' ); ?>: <strong style="color: #d63638;">*</strong></label><br />
+		<input type="email" id="crm_email" name="crm_email" value="<?php echo esc_attr( $email ); ?>" class="widefat" required />
+		<small><?php esc_html_e( 'Primary contact method - required', 'formapress-crm' ); ?></small>
 	</p>
 	<p>
 		<label for="crm_phone"><?php esc_html_e( 'Phone', 'formapress-crm' ); ?>:</label><br />
-		<input type="text" id="crm_phone" name="crm_phone" value="<?php echo esc_attr( $phone ); ?>" class="widefat" />
+		<input type="tel" id="crm_phone" name="crm_phone" value="<?php echo esc_attr( $phone ); ?>" class="widefat" />
 	</p>
 	<p>
-		<label for="crm_job_title"><?php esc_html_e( 'Job Title', 'formapress-crm' ); ?>:</label><br />
-		<input type="text" id="crm_job_title" name="crm_job_title" value="<?php echo esc_attr( $job_title ); ?>" class="widefat" />
-	</p>
-	<p>
-		<label for="crm_user_id"><?php esc_html_e( 'WordPress User ID (if applicable)', 'formapress-crm' ); ?>:</label><br />
-		<input type="number" id="crm_user_id" name="crm_user_id" value="<?php echo esc_attr( $user_id ); ?>" class="widefat" />
-	</p>
-	<p>
-		<label for="crm_lead_source"><?php esc_html_e( 'Lead Source', 'formapress-crm' ); ?>:</label><br />
-		<input type="text" id="crm_lead_source" name="crm_lead_source" value="<?php echo esc_attr( $lead_source ); ?>" class="widefat" />
+		<label for="crm_job_title"><?php esc_html_e( 'Job Title / Role', 'formapress-crm' ); ?>:</label><br />
+		<input type="text" id="crm_job_title" name="crm_job_title" value="<?php echo esc_attr( $job_title ); ?>" class="widefat" placeholder="<?php esc_attr_e( 'e.g., Training Manager, HR Director', 'formapress-crm' ); ?>" />
 	</p>
 	<?php
 }
@@ -265,32 +252,21 @@ function formapress_crm_save_person_meta_data( $post_id ) {
 		}
 	}
 
-	// Sanitize and save Person Details.
+	// Sanitize and save essential Person Details.
 	$fields_to_save = array(
-		'crm_civility'    => '_crm_civility',
-		'crm_email'       => '_crm_email',
-		'crm_phone'       => '_crm_phone',
-		'crm_job_title'   => '_crm_job_title',
-		'crm_user_id'     => '_crm_user_id',
-		'crm_lead_source' => '_crm_lead_source',
-		// 'crm_entreprise_ids' will be handled separately due to array to string conversion.
+		'crm_email'     => '_crm_email',
+		'crm_phone'     => '_crm_phone',
+		'crm_job_title' => '_crm_job_title',
 	);
 
 	foreach ( $fields_to_save as $post_key => $meta_key ) {
 		if ( isset( $_POST[ $post_key ] ) ) {
-			$value = sanitize_text_field( wp_unslash( $_POST[ $post_key ] ) );
-			if ( '_crm_user_id' === $meta_key ) {
-				$value = intval( $value ); // Ensure user ID is an integer.
-			}
 			if ( '_crm_email' === $meta_key ) {
 				$value = sanitize_email( wp_unslash( $_POST[ $post_key ] ) );
+			} else {
+				$value = sanitize_text_field( wp_unslash( $_POST[ $post_key ] ) );
 			}
 			update_post_meta( $post_id, $meta_key, $value );
-		} else {
-			// If the field is not set (e.g., checkbox unchecked), delete the meta.
-			// For text fields, an empty string will be saved if submitted empty,
-			// so explicit deletion might not be needed unless you want to remove the key.
-			// delete_post_meta( $post_id, $meta_key );
 		}
 	}
 
