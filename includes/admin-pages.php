@@ -29,6 +29,15 @@ function formapress_crm_admin_menu() {
 
 	add_submenu_page(
 		'formapress-crm-dashboard',
+		__( 'Sales Pipeline', 'formapress-crm' ),
+		__( 'Pipeline (Kanban)', 'formapress-crm' ),
+		'edit_posts',
+		'formapress-crm-pipeline',
+		'formapress_crm_pipeline_page_html'
+	);
+
+	add_submenu_page(
+		'formapress-crm-dashboard',
 		__( 'Migration Tools', 'formapress-crm' ),
 		__( 'Migration Tools', 'formapress-crm' ),
 		'manage_options',
@@ -48,6 +57,118 @@ function formapress_crm_dashboard_page_html() {
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Formapress CRM Dashboard', 'formapress-crm' ); ?></h1>
 		<p><?php esc_html_e( 'Welcome to the Formapress CRM. Overview and reports will be available here.', 'formapress-crm' ); ?></p>
+	</div>
+	<?php
+}
+
+/**
+ * Displays the Kanban pipeline board for opportunities.
+ */
+function formapress_crm_pipeline_page_html() {
+	// Pipeline stages matching cpt-opportunity.php.
+	$stages = array(
+		'new'         => __( 'New Lead', 'formapress-crm' ),
+		'qualified'   => __( 'Qualified', 'formapress-crm' ),
+		'proposal'    => __( 'Proposal Sent', 'formapress-crm' ),
+		'negotiation' => __( 'Negotiation', 'formapress-crm' ),
+		'won'         => __( 'Won', 'formapress-crm' ),
+		'lost'        => __( 'Lost', 'formapress-crm' ),
+	);
+
+	// Get all opportunities.
+	$opportunities = get_posts(
+		array(
+			'post_type'      => 'crm_opportunity',
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+			'orderby'        => 'date',
+			'order'          => 'DESC',
+		)
+	);
+
+	// Group opportunities by stage.
+	$opportunities_by_stage = array();
+	foreach ( $stages as $stage_key => $stage_label ) {
+		$opportunities_by_stage[ $stage_key ] = array();
+	}
+
+	foreach ( $opportunities as $opp ) {
+		$stage = get_post_meta( $opp->ID, '_crm_opportunity_stage', true );
+		if ( empty( $stage ) ) {
+			$stage = 'new'; // Default.
+		}
+		if ( isset( $opportunities_by_stage[ $stage ] ) ) {
+			$opportunities_by_stage[ $stage ][] = $opp;
+		}
+	}
+
+	?>
+	<div class="wrap">
+		<h1><?php esc_html_e( 'Sales Pipeline', 'formapress-crm' ); ?></h1>
+		
+		<div class="crm-pipeline-actions" style="margin: 20px 0;">
+			<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=crm_opportunity' ) ); ?>" class="button button-primary">
+				<?php esc_html_e( '+ New Opportunity', 'formapress-crm' ); ?>
+			</a>
+		</div>
+
+		<div class="crm-kanban-board">
+			<?php foreach ( $stages as $stage_key => $stage_label ) : ?>
+				<div class="kanban-column" data-stage="<?php echo esc_attr( $stage_key ); ?>">
+					<div class="kanban-column-header">
+						<h3><?php echo esc_html( $stage_label ); ?></h3>
+						<span class="kanban-count"><?php echo count( $opportunities_by_stage[ $stage_key ] ); ?></span>
+					</div>
+					<div class="kanban-cards" data-stage="<?php echo esc_attr( $stage_key ); ?>">
+						<?php
+						if ( ! empty( $opportunities_by_stage[ $stage_key ] ) ) :
+							foreach ( $opportunities_by_stage[ $stage_key ] as $opp ) :
+								$value       = get_post_meta( $opp->ID, '_crm_opportunity_value', true );
+								$close_date  = get_post_meta( $opp->ID, '_crm_opportunity_close_date', true );
+								$person_id   = get_post_meta( $opp->ID, '_crm_associated_person_id', true );
+								$company_id  = get_post_meta( $opp->ID, '_crm_associated_company_id', true );
+								$person_name = $person_id ? get_the_title( $person_id ) : '';
+								?>
+								<div class="kanban-card" data-opportunity-id="<?php echo esc_attr( $opp->ID ); ?>" draggable="true">
+									<div class="kanban-card-header">
+										<h4>
+											<a href="<?php echo esc_url( get_edit_post_link( $opp->ID ) ); ?>">
+												<?php echo esc_html( $opp->post_title ); ?>
+											</a>
+										</h4>
+									</div>
+									<div class="kanban-card-body">
+										<?php if ( $person_name ) : ?>
+											<p class="kanban-card-contact">
+												<span class="dashicons dashicons-admin-users"></span>
+												<?php echo esc_html( $person_name ); ?>
+											</p>
+										<?php endif; ?>
+										<?php if ( $value ) : ?>
+											<p class="kanban-card-value">
+												<strong><?php echo number_format( (float) $value, 2 ); ?> €</strong>
+											</p>
+										<?php endif; ?>
+										<?php if ( $close_date ) : ?>
+											<p class="kanban-card-date">
+												<span class="dashicons dashicons-calendar-alt"></span>
+												<?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $close_date ) ) ); ?>
+											</p>
+										<?php endif; ?>
+									</div>
+								</div>
+								<?php
+							endforeach;
+						else :
+							?>
+							<p class="kanban-empty"><?php esc_html_e( 'No opportunities in this stage', 'formapress-crm' ); ?></p>
+							<?php
+						endif;
+						?>
+					</div>
+				</div>
+			<?php endforeach; ?>
+		</div>
 	</div>
 	<?php
 }
@@ -166,3 +287,38 @@ function formapress_crm_migration_page_html() {
 	</script>
 	<?php
 }
+
+/**
+ * AJAX handler for updating opportunity stage (Kanban drag-drop).
+ */
+function formapress_crm_update_opportunity_stage() {
+	check_ajax_referer( 'formapress_crm_admin_nonce', 'nonce' );
+
+	if ( ! current_user_can( 'edit_posts' ) ) {
+		wp_send_json_error( array( 'message' => __( 'Permission denied', 'formapress-crm' ) ) );
+	}
+
+	$opportunity_id = isset( $_POST['opportunity_id'] ) ? intval( $_POST['opportunity_id'] ) : 0;
+	$new_stage      = isset( $_POST['stage'] ) ? sanitize_text_field( wp_unslash( $_POST['stage'] ) ) : '';
+
+	if ( ! $opportunity_id || ! $new_stage ) {
+		wp_send_json_error( array( 'message' => __( 'Invalid data', 'formapress-crm' ) ) );
+	}
+
+	// Validate stage.
+	$valid_stages = array( 'new', 'qualified', 'proposal', 'negotiation', 'won', 'lost' );
+	if ( ! in_array( $new_stage, $valid_stages, true ) ) {
+		wp_send_json_error( array( 'message' => __( 'Invalid stage', 'formapress-crm' ) ) );
+	}
+
+	// Update the opportunity stage.
+	update_post_meta( $opportunity_id, '_crm_opportunity_stage', $new_stage );
+
+	wp_send_json_success(
+		array(
+			'message' => __( 'Stage updated successfully', 'formapress-crm' ),
+			'stage'   => $new_stage,
+		)
+	);
+}
+add_action( 'wp_ajax_formapress_crm_update_opportunity_stage', 'formapress_crm_update_opportunity_stage' );

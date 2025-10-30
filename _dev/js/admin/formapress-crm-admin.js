@@ -158,7 +158,7 @@
             url: formapressCrmAdmin.ajax_url,
             type: "POST",
             data: {
-                action: "crm_update_opportunity_stage",
+                action: "formapress_crm_update_opportunity_stage",
                 nonce: formapressCrmAdmin.nonce,
                 opportunity_id: opportunityId,
                 stage: newStage,
@@ -166,10 +166,22 @@
             success: function (response) {
                 if (response.success) {
                     showNotice("Opportunity moved to " + newStage, "success");
+                    // Update column counts
+                    updateColumnCounts();
                 } else {
                     showNotice("Error updating opportunity", "error");
                 }
             },
+        });
+    }
+
+    /**
+     * Update Kanban column card counts
+     */
+    function updateColumnCounts() {
+        $(".kanban-column").each(function () {
+            const count = $(this).find(".kanban-card").length;
+            $(this).find(".kanban-count").text(count);
         });
     }
 
