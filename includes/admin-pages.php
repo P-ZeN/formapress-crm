@@ -110,6 +110,9 @@ function formapress_crm_pipeline_page_html() {
 			<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=crm_opportunity' ) ); ?>" class="button button-primary">
 				<?php esc_html_e( '+ New Opportunity', 'formapress-crm' ); ?>
 			</a>
+			<button class="button crm-quick-add-trigger">
+				<?php esc_html_e( '+ Quick Add Contact', 'formapress-crm' ); ?>
+			</button>
 		</div>
 
 		<div class="crm-kanban-board">
@@ -168,6 +171,81 @@ function formapress_crm_pipeline_page_html() {
 					</div>
 				</div>
 			<?php endforeach; ?>
+		</div>
+
+		<!-- Quick Add Contact Modal -->
+		<div class="crm-quick-add-modal">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h2><?php esc_html_e( 'Quick Add Contact', 'formapress-crm' ); ?></h2>
+					<button class="modal-close" aria-label="<?php esc_attr_e( 'Close', 'formapress-crm' ); ?>">
+						<span class="dashicons dashicons-no-alt"></span>
+					</button>
+				</div>
+				<form class="crm-quick-add-form">
+					<?php wp_nonce_field( 'crm_quick_add_person', 'crm_quick_add_nonce' ); ?>
+					<div class="form-field">
+						<label for="quick_add_name">
+							<?php esc_html_e( 'Name', 'formapress-crm' ); ?>
+							<strong style="color: #d63638;">*</strong>
+						</label>
+						<input 
+							type="text" 
+							id="quick_add_name" 
+							name="person_name" 
+							required 
+							placeholder="<?php esc_attr_e( 'John Doe', 'formapress-crm' ); ?>"
+							autocomplete="off"
+						/>
+					</div>
+					<div class="form-field">
+						<label for="quick_add_email">
+							<?php esc_html_e( 'Email', 'formapress-crm' ); ?>
+							<strong style="color: #d63638;">*</strong>
+						</label>
+						<input 
+							type="email" 
+							id="quick_add_email" 
+							name="person_email" 
+							required 
+							placeholder="<?php esc_attr_e( 'john@example.com', 'formapress-crm' ); ?>"
+							autocomplete="off"
+						/>
+					</div>
+					<div class="form-field">
+						<label for="quick_add_phone">
+							<?php esc_html_e( 'Phone', 'formapress-crm' ); ?>
+						</label>
+						<input 
+							type="tel" 
+							id="quick_add_phone" 
+							name="person_phone" 
+							placeholder="<?php esc_attr_e( '+33 6 12 34 56 78', 'formapress-crm' ); ?>"
+							autocomplete="off"
+						/>
+					</div>
+					<div class="form-field">
+						<label for="quick_add_job_title">
+							<?php esc_html_e( 'Job Title', 'formapress-crm' ); ?>
+						</label>
+						<input 
+							type="text" 
+							id="quick_add_job_title" 
+							name="person_job_title" 
+							placeholder="<?php esc_attr_e( 'Training Manager', 'formapress-crm' ); ?>"
+							autocomplete="off"
+						/>
+					</div>
+					<div class="modal-actions">
+						<button type="button" class="button btn-cancel">
+							<?php esc_html_e( 'Cancel', 'formapress-crm' ); ?>
+						</button>
+						<button type="submit" class="button button-primary btn-save">
+							<?php esc_html_e( 'Save Contact', 'formapress-crm' ); ?>
+						</button>
+					</div>
+				</form>
+			</div>
 		</div>
 	</div>
 	<?php
@@ -322,3 +400,79 @@ function formapress_crm_update_opportunity_stage() {
 	);
 }
 add_action( 'wp_ajax_formapress_crm_update_opportunity_stage', 'formapress_crm_update_opportunity_stage' );
+
+/**
+ * AJAX handler for quick-adding a contact (Person CPT).
+ */
+function formapress_crm_quick_add_person() {
+	check_ajax_referer( 'formapress_crm_admin_nonce', 'nonce' );
+
+	if ( ! current_user_can( 'edit_posts' ) ) {
+		wp_send_json_error( array( 'message' => __( 'Permission denied', 'formapress-crm' ) ) );
+	}
+
+	$person_name      = isset( $_POST['person_name'] ) ? sanitize_text_field( wp_unslash( $_POST['person_name'] ) ) : '';
+	$person_email     = isset( $_POST['person_email'] ) ? sanitize_email( wp_unslash( $_POST['person_email'] ) ) : '';
+	$person_phone     = isset( $_POST['person_phone'] ) ? sanitize_text_field( wp_unslash( $_POST['person_phone'] ) ) : '';
+	$person_job_title = isset( $_POST['person_job_title'] ) ? sanitize_text_field( wp_unslash( $_POST['person_job_title'] ) ) : '';
+
+	// Validate required fields.
+	if ( empty( $person_name ) || empty( $person_email ) ) {
+		wp_send_json_error( array( 'message' => __( 'Name and email are required', 'formapress-crm' ) ) );
+	}
+
+	// Validate email format.
+	if ( ! is_email( $person_email ) ) {
+		wp_send_json_error( array( 'message' => __( 'Invalid email address', 'formapress-crm' ) ) );
+	}
+
+	// Check if person with this email already exists.
+	$existing_person = get_posts(
+		array(
+			'post_type'  => 'crm_person',
+			'meta_key'   => '_crm_email',
+			'meta_value' => $person_email,
+			'numberposts' => 1,
+		)
+	);
+
+	if ( ! empty( $existing_person ) ) {
+		wp_send_json_error(
+			array(
+				'message'   => __( 'A contact with this email already exists', 'formapress-crm' ),
+				'person_id' => $existing_person[0]->ID,
+			)
+		);
+	}
+
+	// Create the person post.
+	$person_id = wp_insert_post(
+		array(
+			'post_type'   => 'crm_person',
+			'post_title'  => $person_name,
+			'post_status' => 'publish',
+		)
+	);
+
+	if ( is_wp_error( $person_id ) ) {
+		wp_send_json_error( array( 'message' => __( 'Error creating contact', 'formapress-crm' ) ) );
+	}
+
+	// Save meta fields.
+	update_post_meta( $person_id, '_crm_email', $person_email );
+	if ( ! empty( $person_phone ) ) {
+		update_post_meta( $person_id, '_crm_phone', $person_phone );
+	}
+	if ( ! empty( $person_job_title ) ) {
+		update_post_meta( $person_id, '_crm_job_title', $person_job_title );
+	}
+
+	wp_send_json_success(
+		array(
+			'message'   => __( 'Contact created successfully', 'formapress-crm' ),
+			'person_id' => $person_id,
+			'edit_url'  => get_edit_post_link( $person_id ),
+		)
+	);
+}
+add_action( 'wp_ajax_crm_quick_add', 'formapress_crm_quick_add_person' );
