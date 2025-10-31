@@ -183,16 +183,30 @@ function formapress_crm_pipeline_page_html() {
 				<form class="crm-quick-add-form">
 					<?php wp_nonce_field( 'crm_quick_add_person', 'crm_quick_add_nonce' ); ?>
 					<div class="form-field">
-						<label for="quick_add_name">
-							<?php esc_html_e( 'Name', 'formapress-crm' ); ?>
+						<label for="quick_add_first_name">
+							<?php esc_html_e( 'First Name', 'formapress-crm' ); ?>
 							<strong style="color: #d63638;">*</strong>
 						</label>
 						<input
 							type="text"
-							id="quick_add_name"
-							name="person_name"
+							id="quick_add_first_name"
+							name="person_first_name"
 							required
-							placeholder="<?php esc_attr_e( 'John Doe', 'formapress-crm' ); ?>"
+							placeholder="<?php esc_attr_e( 'John', 'formapress-crm' ); ?>"
+							autocomplete="off"
+						/>
+					</div>
+					<div class="form-field">
+						<label for="quick_add_last_name">
+							<?php esc_html_e( 'Last Name', 'formapress-crm' ); ?>
+							<strong style="color: #d63638;">*</strong>
+						</label>
+						<input
+							type="text"
+							id="quick_add_last_name"
+							name="person_last_name"
+							required
+							placeholder="<?php esc_attr_e( 'Doe', 'formapress-crm' ); ?>"
 							autocomplete="off"
 						/>
 					</div>
@@ -409,14 +423,15 @@ function formapress_crm_quick_add_person() {
 		wp_send_json_error( array( 'message' => __( 'Permission denied', 'formapress-crm' ) ) );
 	}
 
-	$person_name      = isset( $_POST['person_name'] ) ? sanitize_text_field( wp_unslash( $_POST['person_name'] ) ) : '';
+	$first_name       = isset( $_POST['person_first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['person_first_name'] ) ) : '';
+	$last_name        = isset( $_POST['person_last_name'] ) ? sanitize_text_field( wp_unslash( $_POST['person_last_name'] ) ) : '';
 	$person_email     = isset( $_POST['person_email'] ) ? sanitize_email( wp_unslash( $_POST['person_email'] ) ) : '';
 	$person_phone     = isset( $_POST['person_phone'] ) ? sanitize_text_field( wp_unslash( $_POST['person_phone'] ) ) : '';
 	$person_job_title = isset( $_POST['person_job_title'] ) ? sanitize_text_field( wp_unslash( $_POST['person_job_title'] ) ) : '';
 
 	// Validate required fields.
-	if ( empty( $person_name ) || empty( $person_email ) ) {
-		wp_send_json_error( array( 'message' => __( 'Name and email are required', 'formapress-crm' ) ) );
+	if ( empty( $first_name ) || empty( $last_name ) || empty( $person_email ) ) {
+		wp_send_json_error( array( 'message' => __( 'First name, last name and email are required', 'formapress-crm' ) ) );
 	}
 
 	// Validate email format.
@@ -444,10 +459,11 @@ function formapress_crm_quick_add_person() {
 	}
 
 	// Create the person post.
+	$full_name = trim( $first_name . ' ' . $last_name );
 	$person_id = wp_insert_post(
 		array(
 			'post_type'   => 'crm_person',
-			'post_title'  => $person_name,
+			'post_title'  => $full_name,
 			'post_status' => 'publish',
 		)
 	);
@@ -457,6 +473,8 @@ function formapress_crm_quick_add_person() {
 	}
 
 	// Save meta fields.
+	update_post_meta( $person_id, '_crm_first_name', $first_name );
+	update_post_meta( $person_id, '_crm_last_name', $last_name );
 	update_post_meta( $person_id, '_crm_email', $person_email );
 	if ( ! empty( $person_phone ) ) {
 		update_post_meta( $person_id, '_crm_phone', $person_phone );

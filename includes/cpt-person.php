@@ -128,31 +128,99 @@ add_action( 'add_meta_boxes_crm_person', 'formapress_crm_add_person_meta_boxes' 
 
 /**
  * Renders the HTML for the Person Details meta box.
- * SIMPLIFIED: Only essential fields for 30-second contact creation.
+ * Fields match zformations registration form for BPF data completeness.
  *
  * @param WP_Post $post The current post object.
  */
 function formapress_crm_person_details_meta_box_html( $post ) {
 	wp_nonce_field( 'formapress_crm_save_person_meta_data', 'formapress_crm_person_meta_nonce' );
 
-	$email     = get_post_meta( $post->ID, '_crm_email', true );
-	$phone     = get_post_meta( $post->ID, '_crm_phone', true );
-	$job_title = get_post_meta( $post->ID, '_crm_job_title', true );
+	// Get all meta values.
+	$civility    = get_post_meta( $post->ID, '_crm_civility', true );
+	$first_name  = get_post_meta( $post->ID, '_crm_first_name', true );
+	$last_name   = get_post_meta( $post->ID, '_crm_last_name', true );
+	$email       = get_post_meta( $post->ID, '_crm_email', true );
+	$phone       = get_post_meta( $post->ID, '_crm_phone', true );
+	$job_title   = get_post_meta( $post->ID, '_crm_job_title', true );
+	$address     = get_post_meta( $post->ID, '_crm_address', true );
+	$postal_code = get_post_meta( $post->ID, '_crm_postal_code', true );
+	$city        = get_post_meta( $post->ID, '_crm_city', true );
 
 	?>
-	<p>
-		<label for="crm_email"><?php esc_html_e( 'Email', 'formapress-crm' ); ?>: <strong style="color: #d63638;">*</strong></label><br />
-		<input type="email" id="crm_email" name="crm_email" value="<?php echo esc_attr( $email ); ?>" class="widefat" required />
-		<small><?php esc_html_e( 'Primary contact method - required', 'formapress-crm' ); ?></small>
-	</p>
-	<p>
-		<label for="crm_phone"><?php esc_html_e( 'Phone', 'formapress-crm' ); ?>:</label><br />
-		<input type="tel" id="crm_phone" name="crm_phone" value="<?php echo esc_attr( $phone ); ?>" class="widefat" />
-	</p>
-	<p>
-		<label for="crm_job_title"><?php esc_html_e( 'Job Title / Role', 'formapress-crm' ); ?>:</label><br />
-		<input type="text" id="crm_job_title" name="crm_job_title" value="<?php echo esc_attr( $job_title ); ?>" class="widefat" placeholder="<?php esc_attr_e( 'e.g., Training Manager, HR Director', 'formapress-crm' ); ?>" />
-	</p>
+	<div class="crm-person-form">
+		<h3><?php esc_html_e( 'Identity', 'formapress-crm' ); ?></h3>
+		<table class="form-table">
+			<tr>
+				<th><label for="crm_civility"><?php esc_html_e( 'Civility', 'formapress-crm' ); ?></label></th>
+				<td>
+					<select id="crm_civility" name="crm_civility" class="regular-text">
+						<option value=""><?php esc_html_e( '-- Select --', 'formapress-crm' ); ?></option>
+						<option value="M." <?php selected( $civility, 'M.' ); ?>>M.</option>
+						<option value="Mme" <?php selected( $civility, 'Mme' ); ?>>Mme</option>
+						<option value="Mlle" <?php selected( $civility, 'Mlle' ); ?>>Mlle</option>
+						<option value="Dr" <?php selected( $civility, 'Dr' ); ?>>Dr</option>
+					</select>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="crm_first_name"><?php esc_html_e( 'First Name', 'formapress-crm' ); ?>: <strong style="color: #d63638;">*</strong></label></th>
+				<td>
+					<input type="text" id="crm_first_name" name="crm_first_name" value="<?php echo esc_attr( $first_name ); ?>" class="regular-text" required />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="crm_last_name"><?php esc_html_e( 'Last Name', 'formapress-crm' ); ?>: <strong style="color: #d63638;">*</strong></label></th>
+				<td>
+					<input type="text" id="crm_last_name" name="crm_last_name" value="<?php echo esc_attr( $last_name ); ?>" class="regular-text" required />
+				</td>
+			</tr>
+		</table>
+
+		<h3><?php esc_html_e( 'Contact Information', 'formapress-crm' ); ?></h3>
+		<table class="form-table">
+			<tr>
+				<th><label for="crm_email"><?php esc_html_e( 'Email', 'formapress-crm' ); ?>: <strong style="color: #d63638;">*</strong></label></th>
+				<td>
+					<input type="email" id="crm_email" name="crm_email" value="<?php echo esc_attr( $email ); ?>" class="regular-text" required />
+					<p class="description"><?php esc_html_e( 'Primary contact method', 'formapress-crm' ); ?></p>
+				</td>
+			</tr>
+			<tr>
+				<th><label for="crm_phone"><?php esc_html_e( 'Phone', 'formapress-crm' ); ?></label></th>
+				<td>
+					<input type="tel" id="crm_phone" name="crm_phone" value="<?php echo esc_attr( $phone ); ?>" class="regular-text" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="crm_job_title"><?php esc_html_e( 'Job Title', 'formapress-crm' ); ?></label></th>
+				<td>
+					<input type="text" id="crm_job_title" name="crm_job_title" value="<?php echo esc_attr( $job_title ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g., Training Manager', 'formapress-crm' ); ?>" />
+				</td>
+			</tr>
+		</table>
+
+		<h3><?php esc_html_e( 'Address', 'formapress-crm' ); ?></h3>
+		<table class="form-table">
+			<tr>
+				<th><label for="crm_address"><?php esc_html_e( 'Street Address', 'formapress-crm' ); ?></label></th>
+				<td>
+					<input type="text" id="crm_address" name="crm_address" value="<?php echo esc_attr( $address ); ?>" class="regular-text" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="crm_postal_code"><?php esc_html_e( 'Postal Code', 'formapress-crm' ); ?></label></th>
+				<td>
+					<input type="text" id="crm_postal_code" name="crm_postal_code" value="<?php echo esc_attr( $postal_code ); ?>" class="regular-text" />
+				</td>
+			</tr>
+			<tr>
+				<th><label for="crm_city"><?php esc_html_e( 'City', 'formapress-crm' ); ?></label></th>
+				<td>
+					<input type="text" id="crm_city" name="crm_city" value="<?php echo esc_attr( $city ); ?>" class="regular-text" />
+				</td>
+			</tr>
+		</table>
+	</div>
 	<?php
 }
 
@@ -252,11 +320,17 @@ function formapress_crm_save_person_meta_data( $post_id ) {
 		}
 	}
 
-	// Sanitize and save essential Person Details.
+	// Sanitize and save Person Details (matching registration form fields).
 	$fields_to_save = array(
-		'crm_email'     => '_crm_email',
-		'crm_phone'     => '_crm_phone',
-		'crm_job_title' => '_crm_job_title',
+		'crm_civility'    => '_crm_civility',
+		'crm_first_name'  => '_crm_first_name',
+		'crm_last_name'   => '_crm_last_name',
+		'crm_email'       => '_crm_email',
+		'crm_phone'       => '_crm_phone',
+		'crm_job_title'   => '_crm_job_title',
+		'crm_address'     => '_crm_address',
+		'crm_postal_code' => '_crm_postal_code',
+		'crm_city'        => '_crm_city',
 	);
 
 	foreach ( $fields_to_save as $post_key => $meta_key ) {
@@ -267,6 +341,22 @@ function formapress_crm_save_person_meta_data( $post_id ) {
 				$value = sanitize_text_field( wp_unslash( $_POST[ $post_key ] ) );
 			}
 			update_post_meta( $post_id, $meta_key, $value );
+		}
+	}
+
+	// Update post title with full name.
+	if ( isset( $_POST['crm_first_name'] ) || isset( $_POST['crm_last_name'] ) ) {
+		$first = isset( $_POST['crm_first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['crm_first_name'] ) ) : '';
+		$last  = isset( $_POST['crm_last_name'] ) ? sanitize_text_field( wp_unslash( $_POST['crm_last_name'] ) ) : '';
+		$title = trim( $first . ' ' . $last );
+
+		if ( ! empty( $title ) ) {
+			wp_update_post(
+				array(
+					'ID'         => $post_id,
+					'post_title' => $title,
+				)
+			);
 		}
 	}
 
