@@ -181,7 +181,7 @@
     function updateColumnCounts() {
         $(".kanban-column").each(function () {
             const count = $(this).find(".kanban-card").length;
-            $(this).find(".kanban-count").text(count);
+            $(this).find(".column-count").text(count);
         });
     }
 

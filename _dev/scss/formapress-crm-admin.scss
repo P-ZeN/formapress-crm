@@ -8,6 +8,13 @@
  */
 
 /***************************
+ * Component Imports (MUST be first per Sass spec)
+ ***************************/
+@use "components/kanban";
+@use "components/person-card";
+@use "components/quick-add-modal";
+
+/***************************
  * Inherit FormaPress Colors
  ***************************/
 $color_orange: var(--zform_color_orange);
@@ -288,5 +295,3 @@ $blue: var(--zform_blue);
         }
     }
 }
-
-// Component styles are loaded separately via Vite

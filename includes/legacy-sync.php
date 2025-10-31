@@ -341,7 +341,7 @@ function fp_intercept_registration_save() {
 	global $wpdb;
 
 	// Get the last inserted registration ID.
-	$table_name      = $wpdb->prefix . 'zform_registrations';
+	$table_name        = $wpdb->prefix . 'zform_registrations';
 	$last_registration = $wpdb->get_row( "SELECT * FROM {$table_name} ORDER BY id DESC LIMIT 1" );
 
 	if ( ! $last_registration ) {

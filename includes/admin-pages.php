@@ -118,9 +118,9 @@ function formapress_crm_pipeline_page_html() {
 		<div class="crm-kanban-board">
 			<?php foreach ( $stages as $stage_key => $stage_label ) : ?>
 				<div class="kanban-column" data-stage="<?php echo esc_attr( $stage_key ); ?>">
-					<div class="kanban-column-header">
-						<h3><?php echo esc_html( $stage_label ); ?></h3>
-						<span class="kanban-count"><?php echo count( $opportunities_by_stage[ $stage_key ] ); ?></span>
+					<div class="column-header">
+						<div class="column-title"><?php echo esc_html( $stage_label ); ?></div>
+						<span class="column-count"><?php echo count( $opportunities_by_stage[ $stage_key ] ); ?></span>
 					</div>
 					<div class="kanban-cards" data-stage="<?php echo esc_attr( $stage_key ); ?>">
 						<?php
@@ -133,32 +133,30 @@ function formapress_crm_pipeline_page_html() {
 								$person_name = $person_id ? get_the_title( $person_id ) : '';
 								?>
 								<div class="kanban-card" data-opportunity-id="<?php echo esc_attr( $opp->ID ); ?>" draggable="true">
-									<div class="kanban-card-header">
-										<h4>
-											<a href="<?php echo esc_url( get_edit_post_link( $opp->ID ) ); ?>">
-												<?php echo esc_html( $opp->post_title ); ?>
-											</a>
-										</h4>
+									<div class="card-title">
+										<a href="<?php echo esc_url( get_edit_post_link( $opp->ID ) ); ?>">
+											<?php echo esc_html( $opp->post_title ); ?>
+										</a>
 									</div>
-									<div class="kanban-card-body">
-										<?php if ( $person_name ) : ?>
-											<p class="kanban-card-contact">
-												<span class="dashicons dashicons-admin-users"></span>
-												<?php echo esc_html( $person_name ); ?>
-											</p>
-										<?php endif; ?>
-										<?php if ( $value ) : ?>
-											<p class="kanban-card-value">
-												<strong><?php echo number_format( (float) $value, 2 ); ?> €</strong>
-											</p>
-										<?php endif; ?>
-										<?php if ( $close_date ) : ?>
-											<p class="kanban-card-date">
+									<?php if ( $person_name ) : ?>
+										<div class="card-company">
+											<span class="dashicons dashicons-admin-users"></span>
+											<?php echo esc_html( $person_name ); ?>
+										</div>
+									<?php endif; ?>
+									<?php if ( $value ) : ?>
+										<div class="card-value">
+											<?php echo number_format( (float) $value, 2 ); ?> €
+										</div>
+									<?php endif; ?>
+									<?php if ( $close_date ) : ?>
+										<div class="card-footer">
+											<div class="card-date">
 												<span class="dashicons dashicons-calendar-alt"></span>
 												<?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $close_date ) ) ); ?>
-											</p>
-										<?php endif; ?>
-									</div>
+											</div>
+										</div>
+									<?php endif; ?>
 								</div>
 								<?php
 							endforeach;
