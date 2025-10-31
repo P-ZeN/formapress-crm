@@ -105,7 +105,7 @@ function formapress_crm_pipeline_page_html() {
 	?>
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Sales Pipeline', 'formapress-crm' ); ?></h1>
-		
+
 		<div class="crm-pipeline-actions" style="margin: 20px 0;">
 			<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=crm_opportunity' ) ); ?>" class="button button-primary">
 				<?php esc_html_e( '+ New Opportunity', 'formapress-crm' ); ?>
@@ -189,11 +189,11 @@ function formapress_crm_pipeline_page_html() {
 							<?php esc_html_e( 'Name', 'formapress-crm' ); ?>
 							<strong style="color: #d63638;">*</strong>
 						</label>
-						<input 
-							type="text" 
-							id="quick_add_name" 
-							name="person_name" 
-							required 
+						<input
+							type="text"
+							id="quick_add_name"
+							name="person_name"
+							required
 							placeholder="<?php esc_attr_e( 'John Doe', 'formapress-crm' ); ?>"
 							autocomplete="off"
 						/>
@@ -203,11 +203,11 @@ function formapress_crm_pipeline_page_html() {
 							<?php esc_html_e( 'Email', 'formapress-crm' ); ?>
 							<strong style="color: #d63638;">*</strong>
 						</label>
-						<input 
-							type="email" 
-							id="quick_add_email" 
-							name="person_email" 
-							required 
+						<input
+							type="email"
+							id="quick_add_email"
+							name="person_email"
+							required
 							placeholder="<?php esc_attr_e( 'john@example.com', 'formapress-crm' ); ?>"
 							autocomplete="off"
 						/>
@@ -216,10 +216,10 @@ function formapress_crm_pipeline_page_html() {
 						<label for="quick_add_phone">
 							<?php esc_html_e( 'Phone', 'formapress-crm' ); ?>
 						</label>
-						<input 
-							type="tel" 
-							id="quick_add_phone" 
-							name="person_phone" 
+						<input
+							type="tel"
+							id="quick_add_phone"
+							name="person_phone"
 							placeholder="<?php esc_attr_e( '+33 6 12 34 56 78', 'formapress-crm' ); ?>"
 							autocomplete="off"
 						/>
@@ -228,10 +228,10 @@ function formapress_crm_pipeline_page_html() {
 						<label for="quick_add_job_title">
 							<?php esc_html_e( 'Job Title', 'formapress-crm' ); ?>
 						</label>
-						<input 
-							type="text" 
-							id="quick_add_job_title" 
-							name="person_job_title" 
+						<input
+							type="text"
+							id="quick_add_job_title"
+							name="person_job_title"
 							placeholder="<?php esc_attr_e( 'Training Manager', 'formapress-crm' ); ?>"
 							autocomplete="off"
 						/>
@@ -429,9 +429,9 @@ function formapress_crm_quick_add_person() {
 	// Check if person with this email already exists.
 	$existing_person = get_posts(
 		array(
-			'post_type'  => 'crm_person',
-			'meta_key'   => '_crm_email',
-			'meta_value' => $person_email,
+			'post_type'   => 'crm_person',
+			'meta_key'    => '_crm_email',
+			'meta_value'  => $person_email,
 			'numberposts' => 1,
 		)
 	);

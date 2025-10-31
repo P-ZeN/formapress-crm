@@ -297,14 +297,69 @@ function fp_get_unified_person( $id, $source = 'auto' ) {
 	return null;
 }
 
-// Initialize hooks
-add_action(
-	'init',
-	function () {
-		// TODO: Hook into zformations registration save action
-		// add_action('zform_after_registration_saved', 'fp_sync_registration_to_person', 10, 2);
-
-		// TODO: Hook into instructor assignment action
-		// add_action('zform_session_instructor_added', 'fp_sync_instructor_to_person', 10, 2);
+/**
+ * Hook into zformations registration handler to sync new registrations.
+ * Called after successful registration save in zform_registrations_handler().
+ */
+function fp_hook_registration_save() {
+	if ( ! function_exists( 'zform_registrations_handler' ) ) {
+		return; // zformations not active.
 	}
-);
+
+	add_action(
+		'wp_ajax_zform_registrations',
+		function () {
+			// Hook AFTER the registration is saved (priority 999).
+			add_action(
+				'wp_ajax_zform_registrations',
+				'fp_intercept_registration_save',
+				999
+			);
+		},
+		1
+	);
+
+	add_action(
+		'wp_ajax_nopriv_zform_registrations',
+		function () {
+			add_action(
+				'wp_ajax_nopriv_zform_registrations',
+				'fp_intercept_registration_save',
+				999
+			);
+		},
+		1
+	);
+}
+add_action( 'init', 'fp_hook_registration_save' );
+
+/**
+ * Intercept registration save to sync with CRM.
+ * This runs after zform's handler but before the response is sent.
+ */
+function fp_intercept_registration_save() {
+	global $wpdb;
+
+	// Get the last inserted registration ID.
+	$table_name      = $wpdb->prefix . 'zform_registrations';
+	$last_registration = $wpdb->get_row( "SELECT * FROM {$table_name} ORDER BY id DESC LIMIT 1" );
+
+	if ( ! $last_registration ) {
+		return;
+	}
+
+	$registration_id = $last_registration->id;
+	$datas           = maybe_unserialize( $last_registration->datas );
+
+	if ( empty( $datas ) ) {
+		return;
+	}
+
+	// Add IDs to datas for context.
+	$datas['formation_id']    = $last_registration->formation_id;
+	$datas['session_id']      = $last_registration->session_id;
+	$datas['date_submission'] = $last_registration->date_submission;
+
+	// Sync to CRM person.
+	fp_sync_registration_to_person( $registration_id, $datas );
+}
