@@ -86,8 +86,8 @@ function formapress_crm_register_person_cpt() {
 		'has_archive'        => 'crm-persons',
 		'hierarchical'       => false,
 		'menu_position'      => null,
-		'supports'           => array( 'title', 'editor', 'thumbnail', 'custom-fields' ), // 'title' for name, 'editor' for notes, 'thumbnail' for photo
-		'show_in_rest'       => true, // Enable Gutenberg editor and REST API support
+		'supports'           => array( 'title', 'thumbnail' ), // 'title' auto-filled from first+last name, 'thumbnail' for photo. NO 'editor' to avoid Gutenberg conflicts with metaboxes.
+		'show_in_rest'       => false, // Disable Gutenberg to use classic metaboxes properly.
 		'taxonomies'         => array( 'crm_person_type' ), // Assign the custom taxonomy
 	);
 

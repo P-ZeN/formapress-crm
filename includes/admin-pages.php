@@ -182,73 +182,77 @@ function formapress_crm_pipeline_page_html() {
 				</div>
 				<form class="crm-quick-add-form">
 					<?php wp_nonce_field( 'crm_quick_add_person', 'crm_quick_add_nonce' ); ?>
-					<div class="form-field">
-						<label for="quick_add_first_name">
-							<?php esc_html_e( 'First Name', 'formapress-crm' ); ?>
-							<strong style="color: #d63638;">*</strong>
-						</label>
-						<input
-							type="text"
-							id="quick_add_first_name"
-							name="person_first_name"
-							required
-							placeholder="<?php esc_attr_e( 'John', 'formapress-crm' ); ?>"
-							autocomplete="off"
-						/>
+					<div class="modal-body">
+						<div class="form-row">
+							<div class="form-group">
+								<label for="quick_add_first_name">
+									<?php esc_html_e( 'First Name', 'formapress-crm' ); ?>
+									<span class="required">*</span>
+								</label>
+								<input
+									type="text"
+									id="quick_add_first_name"
+									name="person_first_name"
+									required
+									placeholder="<?php esc_attr_e( 'John', 'formapress-crm' ); ?>"
+									autocomplete="off"
+								/>
+							</div>
+							<div class="form-group">
+								<label for="quick_add_last_name">
+									<?php esc_html_e( 'Last Name', 'formapress-crm' ); ?>
+									<span class="required">*</span>
+								</label>
+								<input
+									type="text"
+									id="quick_add_last_name"
+									name="person_last_name"
+									required
+									placeholder="<?php esc_attr_e( 'Doe', 'formapress-crm' ); ?>"
+									autocomplete="off"
+								/>
+							</div>
+						</div>
+						<div class="form-group">
+							<label for="quick_add_email">
+								<?php esc_html_e( 'Email', 'formapress-crm' ); ?>
+								<span class="required">*</span>
+							</label>
+							<input
+								type="email"
+								id="quick_add_email"
+								name="person_email"
+								required
+								placeholder="<?php esc_attr_e( 'john@example.com', 'formapress-crm' ); ?>"
+								autocomplete="off"
+							/>
+						</div>
+						<div class="form-group">
+							<label for="quick_add_phone">
+								<?php esc_html_e( 'Phone', 'formapress-crm' ); ?>
+							</label>
+							<input
+								type="tel"
+								id="quick_add_phone"
+								name="person_phone"
+								placeholder="<?php esc_attr_e( '+33 6 12 34 56 78', 'formapress-crm' ); ?>"
+								autocomplete="off"
+							/>
+						</div>
+						<div class="form-group">
+							<label for="quick_add_job_title">
+								<?php esc_html_e( 'Job Title', 'formapress-crm' ); ?>
+							</label>
+							<input
+								type="text"
+								id="quick_add_job_title"
+								name="person_job_title"
+								placeholder="<?php esc_attr_e( 'Training Manager', 'formapress-crm' ); ?>"
+								autocomplete="off"
+							/>
+						</div>
 					</div>
-					<div class="form-field">
-						<label for="quick_add_last_name">
-							<?php esc_html_e( 'Last Name', 'formapress-crm' ); ?>
-							<strong style="color: #d63638;">*</strong>
-						</label>
-						<input
-							type="text"
-							id="quick_add_last_name"
-							name="person_last_name"
-							required
-							placeholder="<?php esc_attr_e( 'Doe', 'formapress-crm' ); ?>"
-							autocomplete="off"
-						/>
-					</div>
-					<div class="form-field">
-						<label for="quick_add_email">
-							<?php esc_html_e( 'Email', 'formapress-crm' ); ?>
-							<strong style="color: #d63638;">*</strong>
-						</label>
-						<input
-							type="email"
-							id="quick_add_email"
-							name="person_email"
-							required
-							placeholder="<?php esc_attr_e( 'john@example.com', 'formapress-crm' ); ?>"
-							autocomplete="off"
-						/>
-					</div>
-					<div class="form-field">
-						<label for="quick_add_phone">
-							<?php esc_html_e( 'Phone', 'formapress-crm' ); ?>
-						</label>
-						<input
-							type="tel"
-							id="quick_add_phone"
-							name="person_phone"
-							placeholder="<?php esc_attr_e( '+33 6 12 34 56 78', 'formapress-crm' ); ?>"
-							autocomplete="off"
-						/>
-					</div>
-					<div class="form-field">
-						<label for="quick_add_job_title">
-							<?php esc_html_e( 'Job Title', 'formapress-crm' ); ?>
-						</label>
-						<input
-							type="text"
-							id="quick_add_job_title"
-							name="person_job_title"
-							placeholder="<?php esc_attr_e( 'Training Manager', 'formapress-crm' ); ?>"
-							autocomplete="off"
-						/>
-					</div>
-					<div class="modal-actions">
+					<div class="modal-footer">
 						<button type="button" class="button btn-cancel">
 							<?php esc_html_e( 'Cancel', 'formapress-crm' ); ?>
 						</button>
