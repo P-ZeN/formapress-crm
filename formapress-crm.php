@@ -38,7 +38,8 @@ add_action( 'plugins_loaded', 'formapress_crm_load_textdomain' );
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-person.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/taxonomy-company-role.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/synchronization.php';
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/legacy-sync.php'; // NEW: Bridge to old system
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/legacy-sync.php'; // NEW: Bridge to old system.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/migration-reimport.php'; // Re-import with all fields.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/admin-pages.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-opportunity.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-activity.php';

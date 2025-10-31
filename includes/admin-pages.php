@@ -292,19 +292,31 @@ function formapress_crm_migration_page_html() {
 			<div id="referent-migration-log"></div>
 		</div>
 
-		<h2><?php esc_html_e( 'Import Tools', 'formapress-crm' ); ?></h2>
-		<p>
-			<?php esc_html_e( 'Use the tools below to import instructors and trainees into the CRM.', 'formapress-crm' ); ?>
-		</p>
+	<h2><?php esc_html_e( 'Import Tools', 'formapress-crm' ); ?></h2>
+	<p>
+		<?php esc_html_e( 'Use the tools below to import instructors and trainees into the CRM.', 'formapress-crm' ); ?>
+	</p>
 
-		<button id="formapress-crm-import-instructors" class="button button-primary">
-			<?php esc_html_e( 'Import Instructors', 'formapress-crm' ); ?>
-		</button>
-		<button id="formapress-crm-import-trainees" class="button button-secondary">
-			<?php esc_html_e( 'Import Trainees', 'formapress-crm' ); ?>
-		</button>
+	<button id="formapress-crm-import-instructors" class="button button-primary">
+		<?php esc_html_e( 'Import Instructors', 'formapress-crm' ); ?>
+	</button>
+	<button id="formapress-crm-import-trainees" class="button button-secondary">
+		<?php esc_html_e( 'Import Trainees', 'formapress-crm' ); ?>
+	</button>
 
-		<div id="formapress-crm-import-log" style="margin-top:2em;"></div>
+	<div id="formapress-crm-import-log" style="margin-top:2em;"></div>
+
+	<h2 style="margin-top:3em;"><?php esc_html_e( 'Data Quality Tools', 'formapress-crm' ); ?></h2>
+	<p>
+		<?php esc_html_e( 'Re-import all registrations with complete field data. This updates existing persons with missing fields (firstname, lastname, address, city, postal code, company, message) and creates persons for any registrations not yet imported.', 'formapress-crm' ); ?>
+	</p>
+	<p><strong><?php esc_html_e( 'Note:', 'formapress-crm' ); ?></strong> <?php esc_html_e( 'This process will NOT overwrite existing data. It only fills in missing fields.', 'formapress-crm' ); ?></p>
+
+	<button id="formapress-crm-reimport-registrations" class="button button-primary" style="background: #2271b1;">
+		<?php esc_html_e( 'Re-import All Registrations (Fix Missing Fields)', 'formapress-crm' ); ?>
+	</button>
+
+	<div id="formapress-crm-reimport-log" style="margin-top:2em;"></div>
 	</div>
 
 	<script type="text/javascript">
@@ -375,6 +387,33 @@ function formapress_crm_migration_page_html() {
 					} else {
 						$('#formapress-crm-import-log').html('<span style="color:red;">' + (response.data && response.data.message ? response.data.message : '<?php echo esc_js( __( 'An error occurred.', 'formapress-crm' ) ); ?>') + '</span>');
 					}
+				});
+			});
+
+			$('#formapress-crm-reimport-registrations').on('click', function(e) {
+				e.preventDefault();
+				var $button = $(this);
+				$button.prop('disabled', true).text('<?php echo esc_js( __( 'Processing... (may take 1-2 minutes)', 'formapress-crm' ) ); ?>');
+				$('#formapress-crm-reimport-log').html('<em><?php echo esc_js( __( 'Re-importing registrations with all fields...', 'formapress-crm' ) ); ?></em>');
+				$.post(ajaxurl, {
+					action: 'formapress_crm_reimport_registrations',
+					_ajax_nonce: '<?php echo esc_js( wp_create_nonce( 'formapress_crm_reimport_registrations_nonce' ) ); ?>'
+				}, function(response) {
+					$button.prop('disabled', false).text('<?php echo esc_js( __( 'Re-import All Registrations (Fix Missing Fields)', 'formapress-crm' ) ); ?>');
+					if (response.success) {
+						var html = '<div class="notice notice-success"><p><strong>' + response.data.message + '</strong></p></div>';
+						html += '<ul style="list-style: disc; margin-left: 2em;">';
+						response.data.log.forEach(function(line) {
+							html += '<li>' + line + '</li>';
+						});
+						html += '</ul>';
+						$('#formapress-crm-reimport-log').html(html);
+					} else {
+						$('#formapress-crm-reimport-log').html('<div class="notice notice-error"><p>' + (response.data && response.data.message ? response.data.message : '<?php echo esc_js( __( 'An error occurred.', 'formapress-crm' ) ); ?>') + '</p></div>');
+					}
+				}).fail(function() {
+					$button.prop('disabled', false).text('<?php echo esc_js( __( 'Re-import All Registrations (Fix Missing Fields)', 'formapress-crm' ) ); ?>');
+					$('#formapress-crm-reimport-log').html('<div class="notice notice-error"><p><?php echo esc_js( __( 'AJAX request failed. Please try again.', 'formapress-crm' ) ); ?></p></div>');
 				});
 			});
 		});
