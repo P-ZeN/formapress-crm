@@ -128,100 +128,173 @@ add_action( 'add_meta_boxes_crm_person', 'formapress_crm_add_person_meta_boxes' 
 
 /**
  * Renders the HTML for the Person Details meta box.
- * Fields match zformations registration form for BPF data completeness.
+ * Dynamically generates fields based on zform_registrations configuration.
  *
  * @param WP_Post $post The current post object.
  */
 function formapress_crm_person_details_meta_box_html( $post ) {
 	wp_nonce_field( 'formapress_crm_save_person_meta_data', 'formapress_crm_person_meta_nonce' );
 
-	// Get all meta values.
-	$civility    = get_post_meta( $post->ID, '_crm_civility', true );
-	$first_name  = get_post_meta( $post->ID, '_crm_first_name', true );
-	$last_name   = get_post_meta( $post->ID, '_crm_last_name', true );
-	$email       = get_post_meta( $post->ID, '_crm_email', true );
-	$phone       = get_post_meta( $post->ID, '_crm_phone', true );
-	$job_title   = get_post_meta( $post->ID, '_crm_job_title', true );
-	$address     = get_post_meta( $post->ID, '_crm_address', true );
-	$postal_code = get_post_meta( $post->ID, '_crm_postal_code', true );
-	$city        = get_post_meta( $post->ID, '_crm_city', true );
+	// Get dynamic registration fields configuration.
+	$zform_registrations = get_option( 'zform_registrations', array() );
+
+	if ( empty( $zform_registrations ) ) {
+		echo '<p>' . esc_html__( 'No registration fields configured. Please configure fields in zFormations settings.', 'formapress-crm' ) . '</p>';
+		return;
+	}
+
+	// Field name mapping: zform field name => CRM meta key prefix.
+	$field_mapping = array(
+		'civilite'  => 'civilite',
+		'name'      => 'name',
+		'firstname' => 'firstname',
+		'mail'      => 'email',
+		'telephone' => 'phone',
+		'societe'   => 'company',
+		'adresse'   => 'address',
+		'cp'        => 'postal_code',
+		'ville'     => 'city',
+		'message'   => 'message',
+	);
 
 	?>
 	<div class="crm-person-form">
-		<h3><?php esc_html_e( 'Identity', 'formapress-crm' ); ?></h3>
 		<table class="form-table">
-			<tr>
-				<th><label for="crm_civility"><?php esc_html_e( 'Civility', 'formapress-crm' ); ?></label></th>
-				<td>
-					<select id="crm_civility" name="crm_civility" class="regular-text">
-						<option value=""><?php esc_html_e( '-- Select --', 'formapress-crm' ); ?></option>
-						<option value="M." <?php selected( $civility, 'M.' ); ?>>M.</option>
-						<option value="Mme" <?php selected( $civility, 'Mme' ); ?>>Mme</option>
-						<option value="Mlle" <?php selected( $civility, 'Mlle' ); ?>>Mlle</option>
-						<option value="Dr" <?php selected( $civility, 'Dr' ); ?>>Dr</option>
-					</select>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="crm_first_name"><?php esc_html_e( 'First Name', 'formapress-crm' ); ?>: <strong style="color: #d63638;">*</strong></label></th>
-				<td>
-					<input type="text" id="crm_first_name" name="crm_first_name" value="<?php echo esc_attr( $first_name ); ?>" class="regular-text" required />
-				</td>
-			</tr>
-			<tr>
-				<th><label for="crm_last_name"><?php esc_html_e( 'Last Name', 'formapress-crm' ); ?>: <strong style="color: #d63638;">*</strong></label></th>
-				<td>
-					<input type="text" id="crm_last_name" name="crm_last_name" value="<?php echo esc_attr( $last_name ); ?>" class="regular-text" required />
-				</td>
-			</tr>
-		</table>
+			<?php
+			// Sort fields by order.
+			uasort(
+				$zform_registrations,
+				function ( $a, $b ) {
+					$order_a = isset( $a['order'] ) ? intval( $a['order'] ) : 999;
+					$order_b = isset( $b['order'] ) ? intval( $b['order'] ) : 999;
+					return $order_a - $order_b;
+				}
+			);
 
-		<h3><?php esc_html_e( 'Contact Information', 'formapress-crm' ); ?></h3>
-		<table class="form-table">
-			<tr>
-				<th><label for="crm_email"><?php esc_html_e( 'Email', 'formapress-crm' ); ?>: <strong style="color: #d63638;">*</strong></label></th>
-				<td>
-					<input type="email" id="crm_email" name="crm_email" value="<?php echo esc_attr( $email ); ?>" class="regular-text" required />
-					<p class="description"><?php esc_html_e( 'Primary contact method', 'formapress-crm' ); ?></p>
-				</td>
-			</tr>
-			<tr>
-				<th><label for="crm_phone"><?php esc_html_e( 'Phone', 'formapress-crm' ); ?></label></th>
-				<td>
-					<input type="tel" id="crm_phone" name="crm_phone" value="<?php echo esc_attr( $phone ); ?>" class="regular-text" />
-				</td>
-			</tr>
-			<tr>
-				<th><label for="crm_job_title"><?php esc_html_e( 'Job Title', 'formapress-crm' ); ?></label></th>
-				<td>
-					<input type="text" id="crm_job_title" name="crm_job_title" value="<?php echo esc_attr( $job_title ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'e.g., Training Manager', 'formapress-crm' ); ?>" />
-				</td>
-			</tr>
-		</table>
+			foreach ( $zform_registrations as $field_key => $field_config ) {
+				// Skip helptext fields (they're informational only).
+				if ( isset( $field_config['type'] ) && 'helptext' === $field_config['type'] ) {
+					continue;
+				}
 
-		<h3><?php esc_html_e( 'Address', 'formapress-crm' ); ?></h3>
-		<table class="form-table">
-			<tr>
-				<th><label for="crm_address"><?php esc_html_e( 'Street Address', 'formapress-crm' ); ?></label></th>
-				<td>
-					<input type="text" id="crm_address" name="crm_address" value="<?php echo esc_attr( $address ); ?>" class="regular-text" />
-				</td>
-			</tr>
-			<tr>
-				<th><label for="crm_postal_code"><?php esc_html_e( 'Postal Code', 'formapress-crm' ); ?></label></th>
-				<td>
-					<input type="text" id="crm_postal_code" name="crm_postal_code" value="<?php echo esc_attr( $postal_code ); ?>" class="regular-text" />
-				</td>
-			</tr>
-			<tr>
-				<th><label for="crm_city"><?php esc_html_e( 'City', 'formapress-crm' ); ?></label></th>
-				<td>
-					<input type="text" id="crm_city" name="crm_city" value="<?php echo esc_attr( $city ); ?>" class="regular-text" />
-				</td>
-			</tr>
+				// Skip RGPD validation checkbox (not needed in CRM).
+				if ( in_array( $field_key, array( 'validation-rgpd', 'texte-rgpd' ), true ) ) {
+					continue;
+				}
+
+				// Get field configuration.
+				$field_name     = isset( $field_config['name'] ) ? $field_config['name'] : ucfirst( $field_key );
+				$field_type     = isset( $field_config['type'] ) ? $field_config['type'] : 'text';
+				$field_options  = isset( $field_config['options'] ) ? $field_config['options'] : '';
+				$field_required = isset( $field_config['required'] ) && $field_config['required'];
+
+				// Map to CRM meta key (use mapped name if available, otherwise use field_key).
+				$crm_meta_key = isset( $field_mapping[ $field_key ] ) ? $field_mapping[ $field_key ] : $field_key;
+				$meta_key     = '_crm_' . $crm_meta_key;
+
+				// Get current value.
+				$current_value = get_post_meta( $post->ID, $meta_key, true );
+
+				// Render field.
+				echo '<tr>';
+				echo '<th><label for="crm_' . esc_attr( $crm_meta_key ) . '">' . esc_html( $field_name ) . '</label></th>';
+				echo '<td>';
+
+				formapress_crm_render_field( $crm_meta_key, $field_type, $current_value, $field_options, $field_required );
+
+				echo '</td>';
+				echo '</tr>';
+			}
+			?>
 		</table>
 	</div>
 	<?php
+}
+
+/**
+ * Renders a form field based on type.
+ *
+ * @param string $field_key Field key for name/id.
+ * @param string $field_type Field type (text, email, tel, textarea, radio, select, checkbox, etc.).
+ * @param mixed  $current_value Current field value.
+ * @param string $field_options Options for select/radio (pipe-separated: "value|label").
+ * @param bool   $required Whether field is required.
+ */
+function formapress_crm_render_field( $field_key, $field_type, $current_value, $field_options = '', $required = false ) {
+	$field_id       = 'crm_' . $field_key;
+	$field_name     = 'crm_' . $field_key;
+	$required_attr  = $required ? ' required' : '';
+	$required_label = $required ? ' <strong style="color: #d63638;">*</strong>' : '';
+
+	switch ( $field_type ) {
+		case 'radio':
+			// Parse options: "value|label\nvalue2|label2".
+			$options = array_filter( explode( "\n", $field_options ) );
+			echo '<div class="crm-radio-group">';
+			$first = true;
+			foreach ( $options as $option ) {
+				$parts = explode( '|', trim( $option ) );
+				$value = isset( $parts[0] ) ? trim( $parts[0] ) : '';
+				$label = isset( $parts[1] ) ? trim( $parts[1] ) : $value;
+
+				$checked = ( $first && empty( $current_value ) ) || ( $current_value === $value ) ? ' checked' : '';
+				echo '<label style="display: inline-block; margin-right: 15px;">';
+				echo '<input type="radio" name="' . esc_attr( $field_name ) . '" value="' . esc_attr( $value ) . '"' . $checked . $required_attr . ' />';
+				echo ' ' . esc_html( $label );
+				echo '</label>';
+				$first = false;
+			}
+			echo '</div>';
+			break;
+
+		case 'select':
+			// Parse options: "value|label\nvalue2|label2".
+			$options = array_filter( explode( "\n", $field_options ) );
+			echo '<select id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" class="regular-text"' . $required_attr . '>';
+			echo '<option value="">' . esc_html__( '-- Select --', 'formapress-crm' ) . '</option>';
+			foreach ( $options as $option ) {
+				$parts = explode( '|', trim( $option ) );
+				$value = isset( $parts[0] ) ? trim( $parts[0] ) : '';
+				$label = isset( $parts[1] ) ? trim( $parts[1] ) : $value;
+
+				$selected = selected( $current_value, $value, false );
+				echo '<option value="' . esc_attr( $value ) . '"' . $selected . '>' . esc_html( $label ) . '</option>';
+			}
+			echo '</select>';
+			break;
+
+		case 'textarea':
+			echo '<textarea id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" class="large-text" rows="4"' . $required_attr . '>';
+			echo esc_textarea( $current_value );
+			echo '</textarea>';
+			break;
+
+		case 'checkbox':
+			$checked = checked( $current_value, '1', false );
+			echo '<label>';
+			echo '<input type="checkbox" id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" value="1"' . $checked . $required_attr . ' />';
+			echo ' ' . wp_kses_post( $field_options );
+			echo '</label>';
+			break;
+
+		case 'mail':
+		case 'email':
+			echo '<input type="email" id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" value="' . esc_attr( $current_value ) . '" class="regular-text"' . $required_attr . ' />';
+			break;
+
+		case 'tel':
+			echo '<input type="tel" id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" value="' . esc_attr( $current_value ) . '" class="regular-text"' . $required_attr . ' />';
+			break;
+
+		case 'number':
+			echo '<input type="number" id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" value="' . esc_attr( $current_value ) . '" class="regular-text"' . $required_attr . ' />';
+			break;
+
+		case 'text':
+		default:
+			echo '<input type="text" id="' . esc_attr( $field_id ) . '" name="' . esc_attr( $field_name ) . '" value="' . esc_attr( $current_value ) . '" class="regular-text"' . $required_attr . ' />';
+			break;
+	}
 }
 
 /**
@@ -297,6 +370,7 @@ function formapress_crm_person_registrations_meta_box_html( $post ) {
 
 /**
  * Saves the meta data for the crm_person CPT.
+ * Dynamically saves all fields based on zform_registrations configuration.
  *
  * @param int $post_id The ID of the post being saved.
  */
@@ -320,56 +394,80 @@ function formapress_crm_save_person_meta_data( $post_id ) {
 		}
 	}
 
-	// Sanitize and save Person Details (matching registration form fields).
-	$fields_to_save = array(
-		'crm_civility'    => '_crm_civility',
-		'crm_first_name'  => '_crm_first_name',
-		'crm_last_name'   => '_crm_last_name',
-		'crm_email'       => '_crm_email',
-		'crm_phone'       => '_crm_phone',
-		'crm_job_title'   => '_crm_job_title',
-		'crm_address'     => '_crm_address',
-		'crm_postal_code' => '_crm_postal_code',
-		'crm_city'        => '_crm_city',
+	// Get dynamic registration fields configuration.
+	$zform_registrations = get_option( 'zform_registrations', array() );
+
+	// Field name mapping: zform field name => CRM meta key prefix.
+	$field_mapping = array(
+		'civilite'  => 'civilite',
+		'name'      => 'name',
+		'firstname' => 'firstname',
+		'mail'      => 'email',
+		'telephone' => 'phone',
+		'societe'   => 'company',
+		'adresse'   => 'address',
+		'cp'        => 'postal_code',
+		'ville'     => 'city',
+		'message'   => 'message',
 	);
 
-	foreach ( $fields_to_save as $post_key => $meta_key ) {
+	// Save all dynamic fields.
+	foreach ( $zform_registrations as $field_key => $field_config ) {
+		// Skip helptext and RGPD fields.
+		if ( isset( $field_config['type'] ) && 'helptext' === $field_config['type'] ) {
+			continue;
+		}
+		if ( in_array( $field_key, array( 'validation-rgpd', 'texte-rgpd' ), true ) ) {
+			continue;
+		}
+
+		// Map to CRM meta key.
+		$crm_meta_key = isset( $field_mapping[ $field_key ] ) ? $field_mapping[ $field_key ] : $field_key;
+		$post_key     = 'crm_' . $crm_meta_key;
+		$meta_key     = '_crm_' . $crm_meta_key;
+
 		if ( isset( $_POST[ $post_key ] ) ) {
-			if ( '_crm_email' === $meta_key ) {
+			$field_type = isset( $field_config['type'] ) ? $field_config['type'] : 'text';
+
+			// Sanitize based on field type.
+			if ( 'mail' === $field_type || 'email' === $field_type ) {
 				$value = sanitize_email( wp_unslash( $_POST[ $post_key ] ) );
+			} elseif ( 'textarea' === $field_type ) {
+				$value = sanitize_textarea_field( wp_unslash( $_POST[ $post_key ] ) );
+			} elseif ( 'number' === $field_type ) {
+				$value = intval( $_POST[ $post_key ] );
 			} else {
 				$value = sanitize_text_field( wp_unslash( $_POST[ $post_key ] ) );
 			}
+
 			update_post_meta( $post_id, $meta_key, $value );
 		}
 	}
 
-	// Update post title with full name.
-	if ( isset( $_POST['crm_first_name'] ) || isset( $_POST['crm_last_name'] ) ) {
-		$first = isset( $_POST['crm_first_name'] ) ? sanitize_text_field( wp_unslash( $_POST['crm_first_name'] ) ) : '';
-		$last  = isset( $_POST['crm_last_name'] ) ? sanitize_text_field( wp_unslash( $_POST['crm_last_name'] ) ) : '';
-		$title = trim( $first . ' ' . $last );
+	// Update post title with full name (firstname + name).
+	$first = isset( $_POST['crm_firstname'] ) ? sanitize_text_field( wp_unslash( $_POST['crm_firstname'] ) ) : '';
+	$last  = isset( $_POST['crm_name'] ) ? sanitize_text_field( wp_unslash( $_POST['crm_name'] ) ) : '';
+	$title = trim( $first . ' ' . $last );
 
-		if ( ! empty( $title ) ) {
-			wp_update_post(
-				array(
-					'ID'         => $post_id,
-					'post_title' => $title,
-				)
-			);
-		}
+	if ( ! empty( $title ) ) {
+		// Prevent infinite loop by unhooking save action.
+		remove_action( 'save_post_crm_person', 'formapress_crm_save_person_meta_data' );
+		wp_update_post(
+			array(
+				'ID'         => $post_id,
+				'post_title' => $title,
+			)
+		);
+		add_action( 'save_post_crm_person', 'formapress_crm_save_person_meta_data' );
 	}
 
 	// Handle crm_entreprise_ids (multiple select).
 	if ( isset( $_POST['crm_entreprise_ids'] ) && is_array( $_POST['crm_entreprise_ids'] ) ) {
 		$sanitized_entreprise_ids = array_map( 'intval', $_POST['crm_entreprise_ids'] );
-		// Filter out 0s that might result from non-numeric values if any sneak through, though intval helps.
 		$sanitized_entreprise_ids = array_filter( $sanitized_entreprise_ids );
 		$entreprise_ids_string    = implode( ',', $sanitized_entreprise_ids );
 		update_post_meta( $post_id, '_crm_entreprise_ids', $entreprise_ids_string );
 	} else {
-		// If no companies were selected or the field wasn't submitted, save an empty string or delete.
-		// Saving an empty string is consistent with how it might have been if a text field was cleared.
 		update_post_meta( $post_id, '_crm_entreprise_ids', '' );
 	}
 }

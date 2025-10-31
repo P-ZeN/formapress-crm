@@ -82,13 +82,13 @@ function fp_sync_registration_to_person( $registration_id, $datas ) {
 	$person_id = fp_find_person_by_email( $email );
 
 	if ( ! $person_id ) {
-		// Create new person
+		// Create new person.
 		$first_name = $datas['prenom'] ?? $datas['firstname'] ?? '';
 		$last_name  = $datas['nom'] ?? $datas['name'] ?? '';
 		$full_name  = trim( $first_name . ' ' . $last_name );
 
 		if ( empty( $full_name ) ) {
-			$full_name = $email; // Fallback to email
+			$full_name = $email; // Fallback to email.
 		}
 
 		$person_id = wp_insert_post(
@@ -105,41 +105,68 @@ function fp_sync_registration_to_person( $registration_id, $datas ) {
 			return;
 		}
 
-		// Set person meta
-		update_post_meta( $person_id, '_crm_first_name', $first_name );
-		update_post_meta( $person_id, '_crm_last_name', $last_name );
-		update_post_meta( $person_id, '_crm_email', sanitize_email( $email ) );
-		update_post_meta( $person_id, '_crm_phone', $datas['telephone'] ?? $datas['phone'] ?? '' );
-		update_post_meta( $person_id, '_crm_address', $datas['adresse'] ?? '' );
-		update_post_meta( $person_id, '_crm_city', $datas['ville'] ?? '' );
-		update_post_meta( $person_id, '_crm_postal_code', $datas['cp'] ?? '' );
+		// Get dynamic registration fields configuration.
+		$zform_registrations = get_option( 'zform_registrations', array() );
 
-		// Set person type taxonomy
+		// Field name mapping: registration data key => CRM meta key.
+		$field_mapping = array(
+			'civilite'  => '_crm_civilite',
+			'prenom'    => '_crm_firstname',
+			'firstname' => '_crm_firstname',
+			'nom'       => '_crm_name',
+			'name'      => '_crm_name',
+			'mail'      => '_crm_email',
+			'email'     => '_crm_email',
+			'telephone' => '_crm_phone',
+			'phone'     => '_crm_phone',
+			'societe'   => '_crm_company',
+			'adresse'   => '_crm_address',
+			'address'   => '_crm_address',
+			'cp'        => '_crm_postal_code',
+			'ville'     => '_crm_city',
+			'city'      => '_crm_city',
+			'message'   => '_crm_message',
+		);
+
+		// Save ALL configured fields from registration data.
+		foreach ( $zform_registrations as $field_key => $field_config ) {
+			// Skip helptext and RGPD validation fields.
+			if ( isset( $field_config['type'] ) && 'helptext' === $field_config['type'] ) {
+				continue;
+			}
+			if ( in_array( $field_key, array( 'validation-rgpd', 'texte-rgpd' ), true ) ) {
+				continue;
+			}
+
+			// Check if this field exists in registration data.
+			if ( ! isset( $datas[ $field_key ] ) ) {
+				continue;
+			}
+
+			// Get mapped meta key.
+			$meta_key = isset( $field_mapping[ $field_key ] ) ? $field_mapping[ $field_key ] : '_crm_' . $field_key;
+			$value    = $datas[ $field_key ];
+
+			// Sanitize based on field type.
+			$field_type = isset( $field_config['type'] ) ? $field_config['type'] : 'text';
+			if ( 'mail' === $field_type || 'email' === $field_type || strpos( $meta_key, 'email' ) !== false ) {
+				$value = sanitize_email( $value );
+			} elseif ( 'textarea' === $field_type ) {
+				$value = sanitize_textarea_field( $value );
+			} elseif ( 'number' === $field_type ) {
+				$value = intval( $value );
+			} else {
+				$value = sanitize_text_field( $value );
+			}
+
+			update_post_meta( $person_id, $meta_key, $value );
+		}
+
+		// Set person type taxonomy.
 		wp_set_object_terms( $person_id, 'trainee', 'crm_person_type' );
 
-		// Link back to legacy registration
+		// Link back to legacy registration.
 		update_post_meta( $person_id, '_crm_legacy_registration_ids', array( $registration_id ) );
-
-		// Store custom fields as JSON
-		$standard_fields = array(
-			'email',
-			'mail',
-			'prenom',
-			'firstname',
-			'nom',
-			'name',
-			'telephone',
-			'phone',
-			'adresse',
-			'ville',
-			'cp',
-			'date_submission',
-		);
-		$custom_fields   = array_diff_key( $datas, array_flip( $standard_fields ) );
-
-		if ( ! empty( $custom_fields ) ) {
-			update_post_meta( $person_id, '_crm_custom_fields', wp_json_encode( $custom_fields ) );
-		}
 
 		do_action( 'fp_person_created_from_registration', $person_id, $registration_id, $datas );
 	} else {
