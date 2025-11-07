@@ -10,9 +10,14 @@ if ( ! defined( 'WPINC' ) ) {
 
 /**
  * Register crm_person_type Taxonomy for crm_person.
- * This will categorize persons (e.g., Trainee, Instructor, Company Contact, Primary Referent).
+ * This will categorize Personnes (e.g., Trainee, Instructor, Company Contact, Primary Referent).
+ *
+ * DEPRECATED: Using v2 taxonomy from class-formapress-person-manager.php (person_type)
  */
 function formapress_crm_register_person_type_taxonomy() {
+	// Disabled - using v2 person_type taxonomy from FormaPress_Person_Manager
+	return;
+
 	$labels = array(
 		'name'              => _x( 'Person Types', 'taxonomy general name', 'formapress-crm' ),
 		'singular_name'     => _x( 'Person Type', 'taxonomy singular name', 'formapress-crm' ),
@@ -39,7 +44,8 @@ function formapress_crm_register_person_type_taxonomy() {
 
 	register_taxonomy( 'crm_person_type', array( 'crm_person' ), $args );
 }
-add_action( 'init', 'formapress_crm_register_person_type_taxonomy', 0 );
+// Disabled - using v2 taxonomy
+// add_action( 'init', 'formapress_crm_register_person_type_taxonomy', 0 );
 
 
 /**
@@ -48,30 +54,30 @@ add_action( 'init', 'formapress_crm_register_person_type_taxonomy', 0 );
 function formapress_crm_register_person_cpt() {
 
 	$labels = array(
-		'name'                  => _x( 'Persons', 'Post type general name', 'formapress-crm' ),
-		'singular_name'         => _x( 'Person', 'Post type singular name', 'formapress-crm' ),
-		'menu_name'             => _x( 'CRM Persons', 'Admin Menu text', 'formapress-crm' ),
-		'name_admin_bar'        => _x( 'Person', 'Add New on Toolbar', 'formapress-crm' ),
-		'add_new'               => __( 'Add New', 'formapress-crm' ),
-		'add_new_item'          => __( 'Add New Person', 'formapress-crm' ),
-		'new_item'              => __( 'New Person', 'formapress-crm' ),
-		'edit_item'             => __( 'Edit Person', 'formapress-crm' ),
-		'view_item'             => __( 'View Person', 'formapress-crm' ),
-		'all_items'             => __( 'All Persons', 'formapress-crm' ),
-		'search_items'          => __( 'Search Persons', 'formapress-crm' ),
-		'parent_item_colon'     => __( 'Parent Persons:', 'formapress-crm' ),
-		'not_found'             => __( 'No persons found.', 'formapress-crm' ),
-		'not_found_in_trash'    => __( 'No persons found in Trash.', 'formapress-crm' ),
-		'featured_image'        => _x( 'Person Photo', 'Overrides the “Featured Image” phrase for this post type.', 'formapress-crm' ),
-		'set_featured_image'    => _x( 'Set person photo', 'Overrides the “Set featured image” phrase for this post type.', 'formapress-crm' ),
-		'remove_featured_image' => _x( 'Remove person photo', 'Overrides the “Remove featured image” phrase for this post type.', 'formapress-crm' ),
-		'use_featured_image'    => _x( 'Use as person photo', 'Overrides the “Use as featured image” phrase for this post type.', 'formapress-crm' ),
-		'archives'              => _x( 'Person archives', 'The post type archive label used in nav menus.', 'formapress-crm' ),
-		'insert_into_item'      => _x( 'Insert into person', 'Overrides the “Insert into post”/”Insert into page” phrase (used when inserting media into a post).', 'formapress-crm' ),
+		'name'                  => _x( 'Personnes', 'Post type general name', 'formapress-crm' ),
+		'singular_name'         => _x( 'Personne', 'Post type singular name', 'formapress-crm' ),
+		'menu_name'             => _x( 'CRM Personnes', 'Admin Menu text', 'formapress-crm' ),
+		'name_admin_bar'        => _x( 'Personne', 'Add New on Toolbar', 'formapress-crm' ),
+		'add_new'               => __( 'Ajouter nouvelle', 'formapress-crm' ),
+		'add_new_item'          => __( 'Ajouter nouvelle Personne', 'formapress-crm' ),
+		'new_item'              => __( 'Nouvelle Personne', 'formapress-crm' ),
+		'edit_item'             => __( 'Modifier Personne', 'formapress-crm' ),
+		'view_item'             => __( 'Voir Personne', 'formapress-crm' ),
+		'all_items'             => __( 'Personnes', 'formapress-crm' ),
+		'search_items'          => __( 'Rechercher Personnes', 'formapress-crm' ),
+		'parent_item_colon'     => __( 'Parent Personnes:', 'formapress-crm' ),
+		'not_found'             => __( 'Aucune Personne trouvée.', 'formapress-crm' ),
+		'not_found_in_trash'    => __( 'Aucune Personne trouvée dans la corbeille.', 'formapress-crm' ),
+		'featured_image'        => _x( 'Photo de Personne', 'Overrides the “Featured Image” phrase for this post type.', 'formapress-crm' ),
+		'set_featured_image'    => _x( 'Définir la photo de Personne', 'Overrides the “Set featured image” phrase for this post type.', 'formapress-crm' ),
+		'remove_featured_image' => _x( 'Supprimer la photo de Personne', 'Overrides the “Remove featured image” phrase for this post type.', 'formapress-crm' ),
+		'use_featured_image'    => _x( 'Utiliser comme photo de Personne', 'Overrides the “Use as featured image” phrase for this post type.', 'formapress-crm' ),
+		'archives'              => _x( 'Archives de Personne', 'The post type archive label used in nav menus.', 'formapress-crm' ),
+		'insert_into_item'      => _x( 'Insérer dans la Personne', 'Overrides the “Insert into post”/”Insert into page” phrase (used when inserting media into a post).', 'formapress-crm' ),
 		'uploaded_to_this_item' => _x( 'Uploaded to this person', 'Overrides the “Uploaded to this post”/”Uploaded to this page” phrase (used when viewing media attached to a post).', 'formapress-crm' ),
-		'filter_items_list'     => _x( 'Filter persons list', 'Screen reader text for the filter links heading on the post type listing screen.', 'formapress-crm' ),
-		'items_list_navigation' => _x( 'Persons list navigation', 'Screen reader text for the pagination heading on the post type listing screen.', 'formapress-crm' ),
-		'items_list'            => _x( 'Persons list', 'Screen reader text for the items list heading on the post type listing screen.', 'formapress-crm' ),
+		'filter_items_list'     => _x( 'Filter Personnes list', 'Screen reader text for the filter links heading on the post type listing screen.', 'formapress-crm' ),
+		'items_list_navigation' => _x( 'Personnes list navigation', 'Screen reader text for the pagination heading on the post type listing screen.', 'formapress-crm' ),
+		'items_list'            => _x( 'Personnes list', 'Screen reader text for the items list heading on the post type listing screen.', 'formapress-crm' ),
 	);
 
 	$args = array(
@@ -79,11 +85,11 @@ function formapress_crm_register_person_cpt() {
 		'public'             => true,
 		'publicly_queryable' => true,
 		'show_ui'            => true,
-		'show_in_menu'       => true, // You might want to make this a submenu of a main CRM menu later
+		'show_in_menu'       => 'formapress-crm-pipeline', // You might want to make this a submenu of a main CRM menu later
 		'query_var'          => true,
 		'rewrite'            => array( 'slug' => 'crm-person' ),
 		'capability_type'    => 'post',
-		'has_archive'        => 'crm-persons',
+		'has_archive'        => 'crm-Personnes',
 		'hierarchical'       => false,
 		'menu_position'      => null,
 		'supports'           => array( 'title', 'thumbnail' ), // 'title' auto-filled from first+last name, 'thumbnail' for photo. NO 'editor' to avoid Gutenberg conflicts with metaboxes.
@@ -97,8 +103,12 @@ add_action( 'init', 'formapress_crm_register_person_cpt' );
 
 /**
  * Adds meta boxes for the crm_person CPT.
+ *
+ * DEPRECATED: Using v2 meta boxes from class-formapress-person-meta-boxes.php
  */
 function formapress_crm_add_person_meta_boxes() {
+	// Disabled - using v2 meta boxes
+	/*
 	add_meta_box(
 		'formapress_crm_person_details_meta_box',
 		__( 'Person Details', 'formapress-crm' ),
@@ -123,8 +133,10 @@ function formapress_crm_add_person_meta_boxes() {
 		'side', // Changed from 'normal' to 'side' for better layout.
 		'default'
 	);
+	*/
 }
-add_action( 'add_meta_boxes_crm_person', 'formapress_crm_add_person_meta_boxes' );
+// Disabled - using v2 meta boxes
+// add_action( 'add_meta_boxes_crm_person', 'formapress_crm_add_person_meta_boxes' );
 
 /**
  * Renders the HTML for the Person Details meta box.
@@ -138,8 +150,12 @@ function formapress_crm_person_details_meta_box_html( $post ) {
 	// Get dynamic registration fields configuration.
 	$zform_registrations = get_option( 'zform_registrations', array() );
 
+	// DEBUG: Output configuration status.
+	echo '<!-- DEBUG: zform_registrations is ' . ( empty( $zform_registrations ) ? 'EMPTY' : 'array with ' . count( $zform_registrations ) . ' items' ) . ' -->';
+
 	if ( empty( $zform_registrations ) ) {
-		echo '<p>' . esc_html__( 'No registration fields configured. Please configure fields in zFormations settings.', 'formapress-crm' ) . '</p>';
+		echo '<p style="color: red;"><strong>' . esc_html__( 'DEBUG: No registration fields configured. Please configure fields in zFormations settings.', 'formapress-crm' ) . '</strong></p>';
+		echo '<p>Option "zform_registrations" returned: <code>' . esc_html( gettype( $zform_registrations ) ) . '</code></p>';
 		return;
 	}
 
@@ -310,6 +326,36 @@ function formapress_crm_person_company_associations_meta_box_html( $post ) {
 	// Ensure all elements in $selected_entreprise_ids are integers for comparison.
 	$selected_entreprise_ids = array_map( 'intval', $selected_entreprise_ids );
 
+	// Auto-fix: If entreprise_ids is empty but _crm_company exists, try to find matching company.
+	if ( empty( $selected_entreprise_ids ) ) {
+		$company_value = get_post_meta( $post->ID, '_crm_company', true );
+		if ( ! empty( $company_value ) ) {
+			// Check if it's a numeric ID.
+			if ( is_numeric( $company_value ) ) {
+				$selected_entreprise_ids = array( intval( $company_value ) );
+				$entreprise_ids_string   = $company_value;
+				// Save it to the correct field.
+				update_post_meta( $post->ID, '_crm_entreprise_ids', $company_value );
+			} else {
+				// It's a company name - try to find matching company.
+				$matching_companies = get_posts(
+					array(
+						'post_type'      => 'zqpm_entreprise',
+						'title'          => $company_value,
+						'posts_per_page' => 1,
+						'fields'         => 'ids',
+					)
+				);
+				if ( ! empty( $matching_companies ) ) {
+					$selected_entreprise_ids = array( intval( $matching_companies[0] ) );
+					$entreprise_ids_string   = $matching_companies[0];
+					// Save it to the correct field.
+					update_post_meta( $post->ID, '_crm_entreprise_ids', $matching_companies[0] );
+				}
+			}
+		}
+	}
+
 	$all_entreprises = get_posts(
 		array(
 			'post_type'      => 'zqpm_entreprise',
@@ -346,25 +392,74 @@ function formapress_crm_person_company_associations_meta_box_html( $post ) {
  */
 function formapress_crm_person_registrations_meta_box_html( $post ) {
 	// No nonce needed for read-only display.
-	$registration_ids = get_post_meta( $post->ID, '_associated_registration_ids', true );
+	// Check for legacy registration IDs (from wp_zform_registrations table).
+	$registration_ids = get_post_meta( $post->ID, '_crm_legacy_registration_ids', true );
 
 	if ( ! empty( $registration_ids ) && is_array( $registration_ids ) ) {
+		global $wpdb;
+		$table_name = $wpdb->prefix . 'zform_registrations';
+
 		echo '<ul>';
 		foreach ( $registration_ids as $reg_id ) {
-			$reg_id             = intval( $reg_id );
-			$registration_title = get_the_title( $reg_id );
-			$registration_link  = get_edit_post_link( $reg_id );
-			if ( $registration_link ) {
-				echo '<li><a href="' . esc_url( $registration_link ) . '">' . esc_html( $registration_title ) . ' (ID: ' . esc_html( $reg_id ) . ')</a></li>';
+			$reg_id = intval( $reg_id );
+
+			// Get registration data from custom table.
+			$registration = $wpdb->get_row(
+				$wpdb->prepare(
+					"SELECT id, formation_id, session_id, date_submission FROM {$table_name} WHERE id = %d",
+					$reg_id
+				)
+			);
+
+			if ( $registration ) {
+				$formation_title = get_the_title( $registration->formation_id );
+
+				// Try to find the zqpm post associated with this session.
+				$zqpm_title = '';
+				if ( $registration->session_id ) {
+					$zqpm_posts = get_posts(
+						array(
+							'post_type'   => 'zqpm',
+							'meta_key'    => 'zqpm_session_id',
+							'meta_value'  => $registration->session_id,
+							'numberposts' => 1,
+							'fields'      => 'ids',
+						)
+					);
+
+					if ( ! empty( $zqpm_posts ) ) {
+						$zqpm_id = $zqpm_posts[0];
+						// Use the special function to construct the zqpm title.
+						if ( function_exists( 'zqpm_construct_new_title' ) ) {
+							$zqpm_title = zqpm_construct_new_title( '', $zqpm_id );
+						} else {
+							$zqpm_title = get_the_title( $zqpm_id );
+						}
+					}
+				}
+
+				$date = mysql2date( get_option( 'date_format' ), $registration->date_submission );
+
+				echo '<li>';
+				if ( ! empty( $zqpm_title ) ) {
+					// ZQPM title already includes formation name, just show the suivi.
+					echo '<strong>' . esc_html( $zqpm_title ) . '</strong><br>';
+				} else {
+					// No ZQPM found, show formation title only.
+					echo '<strong>' . esc_html( $formation_title ) . '</strong><br>';
+				}
+				echo 'Date: ' . esc_html( $date );
+				echo ' <small>(Reg ID: ' . esc_html( $reg_id ) . ')</small>';
+				echo '</li>';
 			} else {
-				echo '<li>' . esc_html( $registration_title ) . ' (ID: ' . esc_html( $reg_id ) . ') - Registration not found or no edit link.</li>';
+				echo '<li>Registration ID: ' . esc_html( $reg_id ) . ' (not found)</li>';
 			}
 		}
 		echo '</ul>';
 	} else {
 		echo '<p>' . esc_html__( 'No registrations associated with this person yet.', 'formapress-crm' ) . '</p>';
 	}
-	echo '<p><small>' . esc_html__( 'Registrations are linked automatically when a zform_registration is saved for the user associated with this person.', 'formapress-crm' ) . '</small></p>';
+	echo '<p><small>' . esc_html__( 'Registrations from wp_zform_registrations table are automatically linked.', 'formapress-crm' ) . '</small></p>';
 }
 
 
@@ -372,9 +467,12 @@ function formapress_crm_person_registrations_meta_box_html( $post ) {
  * Saves the meta data for the crm_person CPT.
  * Dynamically saves all fields based on zform_registrations configuration.
  *
+ * DEPRECATED: Using v2 save handler from class-formapress-person-meta-boxes.php
+ *
  * @param int $post_id The ID of the post being saved.
  */
 function formapress_crm_save_person_meta_data( $post_id ) {
+	return; // Disabled - using v2 meta boxes save handler
 	// Check if nonce is set.
 	if ( ! isset( $_POST['formapress_crm_person_meta_nonce'] ) ) {
 		return;

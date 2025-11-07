@@ -1,13 +1,17 @@
 /**
  * Vite Build Config for FormaPress CRM
  *
- * Usage:
- *   npm run dev   - Watch mode for development
- *   npm run build - Production build
+ * Philosophy: ALWAYS output production-ready minified files
  *
- * Outputs:
- *   SCSS → ../assets/css/formapress-crm-admin-styles.css
- *   JS   → ../assets/js/formapress-crm-admin.js
+ * Usage:
+ *   npm run dev   - Watch mode (outputs minified files with source maps)
+ *
+ * Output:
+ *   SCSS → ../assets/css/formapress-crm-admin-styles.css (minified)
+ *   JS   → ../assets/js/formapress-crm-admin.js (minified)
+ *   Maps → *.map files for browser DevTools debugging
+ *
+ * Note: No separate production build step needed - files are always production-ready
  */
 import { defineConfig } from "vite";
 import { resolve } from "path";
@@ -23,21 +27,20 @@ export default defineConfig({
     build: {
         outDir: "../assets",
         emptyOutDir: false,
+        minify: "terser", // Always minify
+        sourcemap: true, // Always include source maps for debugging
         rollupOptions: {
             input: {
                 "formapress-crm-admin": resolve(__dirname, "js/admin/formapress-crm-admin.js"),
                 "formapress-crm-admin-styles": resolve(__dirname, "scss/formapress-crm-admin.scss"),
             },
             output: {
-                entryFileNames: (chunkInfo) => {
-                    // JS files go to js/
-                    if (chunkInfo.name.endsWith("-admin")) {
-                        return "js/[name].js";
-                    }
+                entryFileNames: () => {
+                    // JS files go to js/ directory
                     return "js/[name].js";
                 },
                 assetFileNames: (assetInfo) => {
-                    // CSS files go to css/
+                    // CSS files go to css/ directory
                     if (assetInfo.name && assetInfo.name.endsWith(".css")) {
                         return "css/[name][extname]";
                     }
@@ -45,13 +48,13 @@ export default defineConfig({
                 },
             },
         },
-        minify: "terser",
-        sourcemap: true,
         terserOptions: {
             compress: {
-                drop_console: false,
+                drop_console: false, // Keep console.log for debugging
             },
-            mangle: false, // Keep function names readable for WordPress debugging
+            format: {
+                comments: false, // Remove comments
+            },
         },
     },
 });

@@ -15,37 +15,52 @@ if ( ! defined( 'WPINC' ) ) {
  */
 function formapress_crm_admin_menu() {
 
-			$icon = zform_get_plugin_icon();
+	$icon = zform_get_plugin_icon();
 
+	// Main CRM menu - points to Pipeline (Kanban view).
 	add_menu_page(
-		__( 'CRM', 'formapress-crm' ),
-		__( 'CRM', 'formapress-crm' ),
-		'manage_options', // Capability required.
-		'formapress-crm-dashboard',
-		'formapress_crm_dashboard_page_html',
+		'CRM',
+		'CRM',
+		'edit_posts',
+		'formapress-crm-pipeline',
+		'formapress_crm_pipeline_page_html',
 		$icon,
 		24
 	);
 
+	// Dashboard submenu.
 	add_submenu_page(
+		'formapress-crm-pipeline',
+		'Tableau de bord',
+		'Tableau de bord',
+		'manage_options',
 		'formapress-crm-dashboard',
-		__( 'Sales Pipeline', 'formapress-crm' ),
-		__( 'Pipeline (Kanban)', 'formapress-crm' ),
+		'formapress_crm_dashboard_page_html'
+	);
+
+	// Pipeline submenu (will show as first item).
+	add_submenu_page(
+		'formapress-crm-pipeline',
+		'Pipeline commercial',
+		'Pipeline commercial',
 		'edit_posts',
 		'formapress-crm-pipeline',
 		'formapress_crm_pipeline_page_html'
 	);
 
+	// Migration Tools submenu.
 	add_submenu_page(
-		'formapress-crm-dashboard',
-		__( 'Migration Tools', 'formapress-crm' ),
-		__( 'Migration Tools', 'formapress-crm' ),
+		'formapress-crm-pipeline',
+		'Outils de migration',
+		'Outils de migration',
 		'manage_options',
 		'formapress-crm-migration',
 		'formapress_crm_migration_page_html'
 	);
 
-	// Add other submenus for settings, reports etc. later.
+	// Note: Attributes configuration is in unified Settings page (options-general.php -> Forma-Press -> CRM tab)
+	// Note: Opportunities and Invoices CPTs automatically appear here
+	// because they have 'show_in_menu' => 'formapress-crm-pipeline'.
 }
 add_action( 'admin_menu', 'formapress_crm_admin_menu' );
 
@@ -55,8 +70,8 @@ add_action( 'admin_menu', 'formapress_crm_admin_menu' );
 function formapress_crm_dashboard_page_html() {
 	?>
 	<div class="wrap">
-		<h1><?php esc_html_e( 'Formapress CRM Dashboard', 'formapress-crm' ); ?></h1>
-		<p><?php esc_html_e( 'Welcome to the Formapress CRM. Overview and reports will be available here.', 'formapress-crm' ); ?></p>
+		<h1>Tableau de bord CRM</h1>
+		<p>Bienvenue dans le CRM Formapress. Les statistiques et rapports seront disponibles ici.</p>
 	</div>
 	<?php
 }
@@ -65,14 +80,14 @@ function formapress_crm_dashboard_page_html() {
  * Displays the Kanban pipeline board for opportunities.
  */
 function formapress_crm_pipeline_page_html() {
-	// Pipeline stages matching cpt-opportunity.php.
+	// Pipeline stages in French.
 	$stages = array(
-		'new'         => __( 'New Lead', 'formapress-crm' ),
-		'qualified'   => __( 'Qualified', 'formapress-crm' ),
-		'proposal'    => __( 'Proposal Sent', 'formapress-crm' ),
-		'negotiation' => __( 'Negotiation', 'formapress-crm' ),
-		'won'         => __( 'Won', 'formapress-crm' ),
-		'lost'        => __( 'Lost', 'formapress-crm' ),
+		'new'         => 'Nouveau prospect',
+		'qualified'   => 'Qualifié',
+		'proposal'    => 'Proposition envoyée',
+		'negotiation' => 'En négociation',
+		'won'         => 'Gagné',
+		'lost'        => 'Perdu',
 	);
 
 	// Get all opportunities.
@@ -104,14 +119,14 @@ function formapress_crm_pipeline_page_html() {
 
 	?>
 	<div class="wrap">
-		<h1><?php esc_html_e( 'Sales Pipeline', 'formapress-crm' ); ?></h1>
+		<h1>Pipeline commercial</h1>
 
 		<div class="crm-pipeline-actions" style="margin: 20px 0;">
 			<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=crm_opportunity' ) ); ?>" class="button button-primary">
-				<?php esc_html_e( '+ New Opportunity', 'formapress-crm' ); ?>
+				+ Nouvelle opportunité
 			</a>
 			<button class="button crm-quick-add-trigger">
-				<?php esc_html_e( '+ Quick Add Contact', 'formapress-crm' ); ?>
+				+ Ajouter un contact
 			</button>
 		</div>
 
@@ -126,11 +141,12 @@ function formapress_crm_pipeline_page_html() {
 						<?php
 						if ( ! empty( $opportunities_by_stage[ $stage_key ] ) ) :
 							foreach ( $opportunities_by_stage[ $stage_key ] as $opp ) :
-								$value       = get_post_meta( $opp->ID, '_crm_opportunity_value', true );
-								$close_date  = get_post_meta( $opp->ID, '_crm_opportunity_close_date', true );
-								$person_id   = get_post_meta( $opp->ID, '_crm_associated_person_id', true );
-								$company_id  = get_post_meta( $opp->ID, '_crm_associated_company_id', true );
-								$person_name = $person_id ? get_the_title( $person_id ) : '';
+								$value        = get_post_meta( $opp->ID, '_crm_opportunity_value', true );
+								$close_date   = get_post_meta( $opp->ID, '_crm_opportunity_close_date', true );
+								$person_id    = get_post_meta( $opp->ID, '_crm_associated_person_id', true );
+								$company_id   = get_post_meta( $opp->ID, '_crm_associated_company_id', true );
+								$person_name  = $person_id ? get_the_title( $person_id ) : '';
+								$company_name = $company_id ? get_the_title( $company_id ) : '';
 								?>
 								<div class="kanban-card" data-opportunity-id="<?php echo esc_attr( $opp->ID ); ?>" draggable="true">
 									<div class="card-title">
@@ -138,22 +154,28 @@ function formapress_crm_pipeline_page_html() {
 											<?php echo esc_html( $opp->post_title ); ?>
 										</a>
 									</div>
-									<?php if ( $person_name ) : ?>
+									<?php if ( $company_name ) : ?>
 										<div class="card-company">
+											<span class="dashicons dashicons-building"></span>
+											<?php echo esc_html( $company_name ); ?>
+										</div>
+									<?php endif; ?>
+									<?php if ( $person_name ) : ?>
+										<div class="card-contact">
 											<span class="dashicons dashicons-admin-users"></span>
 											<?php echo esc_html( $person_name ); ?>
 										</div>
 									<?php endif; ?>
 									<?php if ( $value ) : ?>
 										<div class="card-value">
-											<?php echo number_format( (float) $value, 2 ); ?> €
+											<?php echo number_format( (float) $value, 2, ',', ' ' ); ?> €
 										</div>
 									<?php endif; ?>
 									<?php if ( $close_date ) : ?>
 										<div class="card-footer">
 											<div class="card-date">
 												<span class="dashicons dashicons-calendar-alt"></span>
-												<?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $close_date ) ) ); ?>
+												<?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $close_date ) ) ); ?>
 											</div>
 										</div>
 									<?php endif; ?>
@@ -162,7 +184,7 @@ function formapress_crm_pipeline_page_html() {
 							endforeach;
 						else :
 							?>
-							<p class="kanban-empty"><?php esc_html_e( 'No opportunities in this stage', 'formapress-crm' ); ?></p>
+							<p class="kanban-empty">Aucune opportunité dans cette étape</p>
 							<?php
 						endif;
 						?>
@@ -317,6 +339,17 @@ function formapress_crm_migration_page_html() {
 	</button>
 
 	<div id="formapress-crm-reimport-log" style="margin-top:2em;"></div>
+
+	<h3 style="margin-top:2em;"><?php esc_html_e( 'Company Association Sync', 'formapress-crm' ); ?></h3>
+	<p>
+		<?php esc_html_e( 'Fix company associations by matching company names from imported data to existing company posts. Creates new company posts for unknown company names.', 'formapress-crm' ); ?>
+	</p>
+
+	<button id="formapress-crm-sync-companies" class="button button-primary" style="background: #00a32a;">
+		<?php esc_html_e( 'Sync Company Associations', 'formapress-crm' ); ?>
+	</button>
+
+	<div id="formapress-crm-sync-companies-log" style="margin-top:2em;"></div>
 	</div>
 
 	<script type="text/javascript">
@@ -416,6 +449,38 @@ function formapress_crm_migration_page_html() {
 					$('#formapress-crm-reimport-log').html('<div class="notice notice-error"><p><?php echo esc_js( __( 'AJAX request failed. Please try again.', 'formapress-crm' ) ); ?></p></div>');
 				});
 			});
+
+			// Sync company associations button
+			$('#formapress-crm-sync-companies').on('click', function(e) {
+				e.preventDefault();
+				var $button = $(this);
+				$button.prop('disabled', true).text('<?php echo esc_js( __( 'Processing...', 'formapress-crm' ) ); ?>');
+				$('#formapress-crm-sync-companies-log').html('<em><?php echo esc_js( __( 'Syncing company associations...', 'formapress-crm' ) ); ?></em>');
+				$.post(ajaxurl, {
+					action: 'formapress_crm_sync_company_associations',
+					_ajax_nonce: '<?php echo esc_js( wp_create_nonce( 'formapress_crm_sync_companies_nonce' ) ); ?>'
+				}, function(response) {
+					$button.prop('disabled', false).text('<?php echo esc_js( __( 'Sync Company Associations', 'formapress-crm' ) ); ?>');
+					if (response.success) {
+						var html = '<div class="notice notice-success"><p><strong><?php echo esc_js( __( 'Company Sync Complete!', 'formapress-crm' ) ); ?></strong></p>';
+						html += '<p><?php echo esc_js( __( 'Fixed:', 'formapress-crm' ) ); ?> ' + response.data.fixed_count + '</p>';
+						html += '<p><?php echo esc_js( __( 'Created Companies:', 'formapress-crm' ) ); ?> ' + response.data.created_count + '</p>';
+						html += '<p><?php echo esc_js( __( 'Skipped:', 'formapress-crm' ) ); ?> ' + response.data.skipped_count + '</p>';
+						html += '<p><strong><?php echo esc_js( __( 'Log:', 'formapress-crm' ) ); ?></strong></p>';
+						html += '<ul style="list-style: disc; margin-left: 2em;">';
+						response.data.log.forEach(function(line) {
+							html += '<li>' + line + '</li>';
+						});
+						html += '</ul></div>';
+						$('#formapress-crm-sync-companies-log').html(html);
+					} else {
+						$('#formapress-crm-sync-companies-log').html('<div class="notice notice-error"><p>' + (response.data && response.data.message ? response.data.message : '<?php echo esc_js( __( 'An error occurred.', 'formapress-crm' ) ); ?>') + '</p></div>');
+					}
+				}).fail(function() {
+					$button.prop('disabled', false).text('<?php echo esc_js( __( 'Sync Company Associations', 'formapress-crm' ) ); ?>');
+					$('#formapress-crm-sync-companies-log').html('<div class="notice notice-error"><p><?php echo esc_js( __( 'AJAX request failed. Please try again.', 'formapress-crm' ) ); ?></p></div>');
+				});
+			});
 		});
 	</script>
 	<?php
@@ -428,20 +493,25 @@ function formapress_crm_update_opportunity_stage() {
 	check_ajax_referer( 'formapress_crm_admin_nonce', 'nonce' );
 
 	if ( ! current_user_can( 'edit_posts' ) ) {
-		wp_send_json_error( array( 'message' => __( 'Permission denied', 'formapress-crm' ) ) );
+		wp_send_json_error( array( 'message' => 'Permission refusée' ) );
 	}
 
 	$opportunity_id = isset( $_POST['opportunity_id'] ) ? intval( $_POST['opportunity_id'] ) : 0;
 	$new_stage      = isset( $_POST['stage'] ) ? sanitize_text_field( wp_unslash( $_POST['stage'] ) ) : '';
 
 	if ( ! $opportunity_id || ! $new_stage ) {
-		wp_send_json_error( array( 'message' => __( 'Invalid data', 'formapress-crm' ) ) );
+		wp_send_json_error( array( 'message' => 'Données invalides' ) );
 	}
 
 	// Validate stage.
 	$valid_stages = array( 'new', 'qualified', 'proposal', 'negotiation', 'won', 'lost' );
 	if ( ! in_array( $new_stage, $valid_stages, true ) ) {
-		wp_send_json_error( array( 'message' => __( 'Invalid stage', 'formapress-crm' ) ) );
+		wp_send_json_error( array( 'message' => 'Étape invalide' ) );
+	}
+
+	// Verify this is an opportunity post.
+	if ( 'crm_opportunity' !== get_post_type( $opportunity_id ) ) {
+		wp_send_json_error( array( 'message' => 'Type de post invalide' ) );
 	}
 
 	// Update the opportunity stage.
@@ -449,7 +519,7 @@ function formapress_crm_update_opportunity_stage() {
 
 	wp_send_json_success(
 		array(
-			'message' => __( 'Stage updated successfully', 'formapress-crm' ),
+			'message' => 'Étape mise à jour avec succès',
 			'stage'   => $new_stage,
 		)
 	);
@@ -535,3 +605,145 @@ function formapress_crm_quick_add_person() {
 	);
 }
 add_action( 'wp_ajax_crm_quick_add', 'formapress_crm_quick_add_person' );
+
+/**
+ * Displays the HTML for the CRM Attributes page (tabbed interface).
+ */
+function formapress_crm_attributes_page_html() {
+	// Check user capabilities.
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_die( esc_html__( 'You do not have sufficient permissions to access this page.', 'formapress-crm' ) );
+	}
+
+	// Get active tab from URL or default to referent.
+	$active_tab = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'referent';
+	$valid_tabs = array( 'referent', 'prospect', 'funder', 'company', 'opportunity' );
+	if ( ! in_array( $active_tab, $valid_tabs, true ) ) {
+		$active_tab = 'referent';
+	}
+
+	// Handle form submission.
+	if ( isset( $_POST['submit'] ) && isset( $_POST['option_page'] ) ) {
+		$option_page = sanitize_text_field( wp_unslash( $_POST['option_page'] ) );
+		check_admin_referer( $option_page . '-options' );
+
+		$option_name = '';
+		switch ( $active_tab ) {
+			case 'referent':
+				$option_name = 'crm_person_referent_attributes';
+				break;
+			case 'prospect':
+				$option_name = 'crm_person_prospect_attributes';
+				break;
+			case 'funder':
+				$option_name = 'crm_person_funder_attributes';
+				break;
+			case 'company':
+				$option_name = 'crm_company_attributes';
+				break;
+			case 'opportunity':
+				$option_name = 'crm_opportunity_attributes';
+				break;
+		}
+
+		if ( $option_name && isset( $_POST[ $option_name ] ) ) {
+			// Sanitize and save the option.
+			$raw_data  = wp_unslash( $_POST[ $option_name ] ); // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+			$new_value = formapress_crm_sanitize_attributes( $raw_data );
+			update_option( $option_name, $new_value );
+			add_settings_error( 'formapress_crm_attributes', 'settings_updated', __( 'Settings saved.', 'formapress-crm' ), 'updated' );
+		}
+	}
+
+	?>
+	<div class="wrap">
+		<h1><?php esc_html_e( 'CRM Attributes', 'formapress-crm' ); ?></h1>
+		<p><?php esc_html_e( 'Manage dynamic attributes for different entity types. These fields appear in editors and are accessible via shortcodes.', 'formapress-crm' ); ?></p>
+
+		<?php settings_errors( 'formapress_crm_attributes' ); ?>
+
+		<h2 class="nav-tab-wrapper">
+			<a href="?page=formapress-crm-attributes&tab=referent" class="nav-tab <?php echo 'referent' === $active_tab ? 'nav-tab-active' : ''; ?>">
+				<?php esc_html_e( 'Referents', 'formapress-crm' ); ?>
+			</a>
+			<a href="?page=formapress-crm-attributes&tab=prospect" class="nav-tab <?php echo 'prospect' === $active_tab ? 'nav-tab-active' : ''; ?>">
+				<?php esc_html_e( 'Prospects', 'formapress-crm' ); ?>
+			</a>
+			<a href="?page=formapress-crm-attributes&tab=funder" class="nav-tab <?php echo 'funder' === $active_tab ? 'nav-tab-active' : ''; ?>">
+				<?php esc_html_e( 'Funders', 'formapress-crm' ); ?>
+			</a>
+			<a href="?page=formapress-crm-attributes&tab=company" class="nav-tab <?php echo 'company' === $active_tab ? 'nav-tab-active' : ''; ?>">
+				<?php esc_html_e( 'Companies', 'formapress-crm' ); ?>
+			</a>
+			<a href="?page=formapress-crm-attributes&tab=opportunity" class="nav-tab <?php echo 'opportunity' === $active_tab ? 'nav-tab-active' : ''; ?>">
+				<?php esc_html_e( 'Opportunities', 'formapress-crm' ); ?>
+			</a>
+		</h2>
+
+		<form method="post" action="">
+			<?php
+			// Output nonce for the current tab.
+			$option_group = 'formapress_crm_attributes_' . $active_tab;
+			settings_fields( $option_group );
+			wp_nonce_field( $option_group . '-options' );
+			?>
+			<input type="hidden" name="option_page" value="<?php echo esc_attr( $option_group ); ?>" />
+
+			<?php
+			// Include the appropriate tab content file.
+			switch ( $active_tab ) {
+				case 'referent':
+					require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/options-referent-attributes.php';
+					break;
+				case 'prospect':
+					require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/options-prospect-attributes.php';
+					break;
+				case 'funder':
+					require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/options-funder-attributes.php';
+					break;
+				case 'company':
+					require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/options-company-attributes.php';
+					break;
+				case 'opportunity':
+					require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/options-opportunity-attributes.php';
+					break;
+			}
+			?>
+		</form>
+	</div>
+	<?php
+}
+
+/**
+ * Sanitize attributes array - convert numeric keys to slugged keys.
+ *
+ * @param array $new_value Updated value.
+ * @return array Sanitized array.
+ */
+function formapress_crm_sanitize_attributes( $new_value ) {
+	$new_array = array();
+
+	foreach ( $new_value as $key => $value ) {
+		if ( ! empty( $value['name'] ) ) {
+			if ( is_numeric( $key ) ) {
+				// Convert numeric key to slugged key based on field name.
+				$new_array[ sanitize_title( $value['name'] ) ] = $value;
+			} else {
+				$new_array[ $key ] = $value;
+			}
+		}
+	}
+	$new_value = $new_array;
+
+	// Sort by order.
+	uasort(
+		$new_value,
+		function ( $a, $b ) {
+			$a_order = isset( $a['order'] ) ? $a['order'] : 0;
+			$b_order = isset( $b['order'] ) ? $b['order'] : 0;
+			return $a_order > $b_order;
+		}
+	);
+
+	return $new_value;
+}

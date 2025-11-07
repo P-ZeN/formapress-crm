@@ -225,25 +225,139 @@ function formapress_crm_reimport_registrations() {
 }
 
 /**
- * AJAX handler for re-importing registrations.
+ * AJAX handler for re-importing registrations with full data.
  */
-function formapress_crm_ajax_reimport_registrations_handler() {
-	check_ajax_referer( 'formapress_crm_reimport_registrations_nonce', '_ajax_nonce' );
+function formapress_crm_ajax_reimport_registrations() {
+	check_ajax_referer( 'formapress_crm_reimport_nonce', '_ajax_nonce' );
 
 	if ( ! current_user_can( 'manage_options' ) ) {
-		wp_send_json_error( array( 'message' => __( 'You do not have sufficient permissions to perform this action.', 'formapress-crm' ) ) );
+		wp_send_json_error( array( 'message' => 'Permission denied.' ) );
 	}
 
-	// Set time limit to handle large datasets.
-	set_time_limit( 300 );
+	$result = formapress_crm_reimport_registrations_with_full_data();
 
-	$log = formapress_crm_reimport_registrations();
+	if ( $result['success'] ) {
+		wp_send_json_success( $result );
+	} else {
+		wp_send_json_error( $result );
+	}
+}
+add_action( 'wp_ajax_formapress_crm_reimport_registrations', 'formapress_crm_ajax_reimport_registrations' );
 
-	wp_send_json_success(
+/**
+ * Sync company associations for all persons.
+ * Fixes legacy data where _crm_company contains names or IDs but _crm_entreprise_ids is empty.
+ */
+function formapress_crm_sync_company_associations() {
+	$persons = get_posts(
 		array(
-			'message' => __( 'Re-import process finished.', 'formapress-crm' ),
-			'log'     => $log,
+			'post_type'      => 'crm_person',
+			'posts_per_page' => -1,
+			'fields'         => 'ids',
+			'post_status'    => 'any',
 		)
 	);
+
+	$fixed_count   = 0;
+	$created_count = 0;
+	$skipped_count = 0;
+	$log           = array();
+
+	foreach ( $persons as $person_id ) {
+		$entreprise_ids = get_post_meta( $person_id, '_crm_entreprise_ids', true );
+
+		// Only process if _crm_entreprise_ids is empty.
+		if ( ! empty( $entreprise_ids ) ) {
+			++$skipped_count;
+			continue;
+		}
+
+		$company_value = get_post_meta( $person_id, '_crm_company', true );
+
+		if ( empty( $company_value ) ) {
+			++$skipped_count;
+			continue;
+		}
+
+		// Check if it's a numeric ID.
+		if ( is_numeric( $company_value ) ) {
+			// Verify the company post exists.
+			$company_post = get_post( intval( $company_value ) );
+			if ( $company_post && $company_post->post_type === 'zqpm_entreprise' ) {
+				update_post_meta( $person_id, '_crm_entreprise_ids', $company_value );
+				++$fixed_count;
+				$log[] = 'Person #' . $person_id . ': Linked to existing company #' . $company_value . ' (' . $company_post->post_title . ')';
+			} else {
+				$log[] = 'Person #' . $person_id . ': Invalid company ID ' . $company_value;
+				++$skipped_count;
+			}
+		} else {
+			// It's a company name - try to find or create.
+			$matching_companies = get_posts(
+				array(
+					'post_type'      => 'zqpm_entreprise',
+					'title'          => $company_value,
+					'posts_per_page' => 1,
+					'fields'         => 'ids',
+				)
+			);
+
+			if ( ! empty( $matching_companies ) ) {
+				// Found existing company.
+				$company_id = $matching_companies[0];
+				update_post_meta( $person_id, '_crm_entreprise_ids', $company_id );
+				update_post_meta( $person_id, '_crm_company', $company_id ); // Update to use ID.
+				++$fixed_count;
+				$log[] = 'Person #' . $person_id . ': Linked to existing company #' . $company_id . ' (' . $company_value . ')';
+			} else {
+				// Create new company.
+				$company_id = wp_insert_post(
+					array(
+						'post_type'   => 'zqpm_entreprise',
+						'post_title'  => $company_value,
+						'post_status' => 'publish',
+					)
+				);
+
+				if ( ! is_wp_error( $company_id ) ) {
+					update_post_meta( $person_id, '_crm_entreprise_ids', $company_id );
+					update_post_meta( $person_id, '_crm_company', $company_id ); // Update to use ID.
+					++$created_count;
+					++$fixed_count;
+					$log[] = 'Person #' . $person_id . ': Created new company #' . $company_id . ' (' . $company_value . ')';
+				} else {
+					$log[] = 'Person #' . $person_id . ': Failed to create company "' . $company_value . '"';
+					++$skipped_count;
+				}
+			}
+		}
+	}
+
+	return array(
+		'success'       => true,
+		'fixed_count'   => $fixed_count,
+		'created_count' => $created_count,
+		'skipped_count' => $skipped_count,
+		'log'           => $log,
+	);
 }
-add_action( 'wp_ajax_formapress_crm_reimport_registrations', 'formapress_crm_ajax_reimport_registrations_handler' );
+
+/**
+ * AJAX handler for syncing company associations.
+ */
+function formapress_crm_ajax_sync_company_associations() {
+	check_ajax_referer( 'formapress_crm_sync_companies_nonce', '_ajax_nonce' );
+
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_send_json_error( array( 'message' => 'Permission denied.' ) );
+	}
+
+	$result = formapress_crm_sync_company_associations();
+
+	if ( $result['success'] ) {
+		wp_send_json_success( $result );
+	} else {
+		wp_send_json_error( $result );
+	}
+}
+add_action( 'wp_ajax_formapress_crm_sync_company_associations', 'formapress_crm_ajax_sync_company_associations' );
