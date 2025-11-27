@@ -14,15 +14,20 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-// Deprecation notice for admin users
-if ( is_admin() && current_user_can( 'manage_options' ) ) {
-	add_action(
-		'admin_notices',
-		function () {
-			echo '<div class="notice notice-warning"><p><strong>FormaPress CRM:</strong> synchronization.php is deprecated. Use WP-CLI: <code>wp formapress migrate</code></p></div>';
+// Deprecation notice for admin users - hooked to admin_init to avoid early current_user_can() call
+add_action(
+	'admin_init',
+	function () {
+		if ( current_user_can( 'manage_options' ) ) {
+			add_action(
+				'admin_notices',
+				function () {
+					echo '<div class="notice notice-warning"><p><strong>FormaPress CRM:</strong> synchronization.php is deprecated. Use WP-CLI: <code>wp formapress migrate</code></p></div>';
+				}
+			);
 		}
-	);
-}
+	}
+);
 
 /**
  * Synchronizes a WordPress user to a crm_person record.

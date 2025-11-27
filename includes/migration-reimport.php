@@ -14,15 +14,20 @@ if ( ! defined( 'WPINC' ) ) {
 	die;
 }
 
-// Deprecation notice
-if ( is_admin() && current_user_can( 'manage_options' ) ) {
-	add_action(
-		'admin_notices',
-		function () {
-			echo '<div class="notice notice-warning"><p><strong>FormaPress CRM:</strong> migration-reimport.php is deprecated. Use: <code>wp formapress migrate trainees --force</code></p></div>';
+// Deprecation notice - hooked to admin_init to avoid early current_user_can() call
+add_action(
+	'admin_init',
+	function () {
+		if ( current_user_can( 'manage_options' ) ) {
+			add_action(
+				'admin_notices',
+				function () {
+					echo '<div class="notice notice-warning"><p><strong>FormaPress CRM:</strong> migration-reimport.php is deprecated. Use: <code>wp formapress migrate trainees --force</code></p></div>';
+				}
+			);
 		}
-	);
-}
+	}
+);
 
 /**
  * Re-import all registrations from wp_zform_registrations table.
