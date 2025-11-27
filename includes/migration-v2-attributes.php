@@ -18,15 +18,20 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-// Deprecation notice
-if ( is_admin() && current_user_can( 'manage_options' ) ) {
-	add_action(
-		'admin_notices',
-		function () {
-			echo '<div class="notice notice-info"><p><strong>FormaPress CRM:</strong> migration-v2-attributes.php is no longer needed. Migrations save attributes correctly from the start.</p></div>';
+// Deprecation notice - hooked to admin_init to avoid calling current_user_can() too early
+add_action(
+	'admin_init',
+	function () {
+		if ( current_user_can( 'manage_options' ) ) {
+			add_action(
+				'admin_notices',
+				function () {
+					echo '<div class="notice notice-info"><p><strong>FormaPress CRM:</strong> migration-v2-attributes.php is no longer needed. Migrations save attributes correctly from the start.</p></div>';
+				}
+			);
 		}
-	);
-}
+	}
+);
 
 /**
  * Main migration orchestrator for v1→v2 attribute system
