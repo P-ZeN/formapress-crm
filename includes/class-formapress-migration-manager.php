@@ -200,8 +200,8 @@ class FormaPress_Migration_Manager {
 		WP_CLI::line( WP_CLI::colorize( '%B▶ Step 3/5: Link Trainee Tokens%n' ) );
 		WP_CLI::line( '' );
 
-		$step_start = microtime( true );
-		$trainee_link_result = FormaPress_Token_Migration::update_trainee_tokens_to_v2_persons(
+		$step_start             = microtime( true );
+		$trainee_link_result    = FormaPress_Token_Migration::update_trainee_tokens_to_v2_persons(
 			array(
 				'dry_run' => $dry_run,
 				'verbose' => true,
@@ -210,19 +210,21 @@ class FormaPress_Migration_Manager {
 		$steps['trainee_links'] = microtime( true ) - $step_start;
 
 		WP_CLI::line( '' );
-		WP_CLI::success( sprintf(
-			'Trainee token linking completed: %d linked in %.2fs',
-			$trainee_link_result['updated'],
-			$steps['trainee_links']
-		) );
+		WP_CLI::success(
+			sprintf(
+				'Trainee token linking completed: %d linked in %.2fs',
+				$trainee_link_result['updated'],
+				$steps['trainee_links']
+			)
+		);
 		WP_CLI::line( '' );
 
 		// Step 4: Link instructor tokens.
 		WP_CLI::line( WP_CLI::colorize( '%B▶ Step 4/5: Link Instructor Tokens%n' ) );
 		WP_CLI::line( '' );
 
-		$step_start = microtime( true );
-		$instructor_link_result = FormaPress_Token_Migration::update_instructor_tokens_to_v2_persons(
+		$step_start                = microtime( true );
+		$instructor_link_result    = FormaPress_Token_Migration::update_instructor_tokens_to_v2_persons(
 			array(
 				'dry_run' => $dry_run,
 				'verbose' => true,
@@ -231,19 +233,21 @@ class FormaPress_Migration_Manager {
 		$steps['instructor_links'] = microtime( true ) - $step_start;
 
 		WP_CLI::line( '' );
-		WP_CLI::success( sprintf(
-			'Instructor token linking completed: %d linked in %.2fs',
-			$instructor_link_result['updated'],
-			$steps['instructor_links']
-		) );
+		WP_CLI::success(
+			sprintf(
+				'Instructor token linking completed: %d linked in %.2fs',
+				$instructor_link_result['updated'],
+				$steps['instructor_links']
+			)
+		);
 		WP_CLI::line( '' );
 
 		// Step 5: Verification.
 		WP_CLI::line( WP_CLI::colorize( '%B▶ Step 5/5: Verification%n' ) );
 		WP_CLI::line( '' );
 
-		$step_start = microtime( true );
-		$verify_results = FormaPress_Token_Migration::verify_migration();
+		$step_start            = microtime( true );
+		$verify_results        = FormaPress_Token_Migration::verify_migration();
 		$steps['verification'] = microtime( true ) - $step_start;
 
 		foreach ( $verify_results['log'] as $log_line ) {
@@ -273,10 +277,13 @@ class FormaPress_Migration_Manager {
 		WP_CLI::line( 'Summary:' );
 		WP_CLI::line( sprintf( '  • Persons migrated: instructors + companies + trainees' ) );
 		WP_CLI::line( sprintf( '  • Tokens migrated: %d', $total_tokens ) );
-		WP_CLI::line( sprintf( '  • Tokens linked: %d trainee + %d instructor',
-			$trainee_link_result['updated'],
-			$instructor_link_result['updated']
-		) );
+		WP_CLI::line(
+			sprintf(
+				'  • Tokens linked: %d trainee + %d instructor',
+				$trainee_link_result['updated'],
+				$instructor_link_result['updated']
+			)
+		);
 		WP_CLI::line( '' );
 		WP_CLI::line( sprintf( 'Total time: %.2fs', $total_time ) );
 		WP_CLI::line( '' );

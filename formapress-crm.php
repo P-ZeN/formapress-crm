@@ -53,6 +53,7 @@ require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-person-manag
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-company-manager.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-migration-manager.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-shortcode-manager.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-person-adapter.php'; // v1/v2 compatibility layer.
 
 /**
  * Include v2 Admin UI
