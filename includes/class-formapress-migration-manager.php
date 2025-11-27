@@ -30,6 +30,7 @@ class FormaPress_Migration_Manager {
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			WP_CLI::add_command( 'formapress migrate-schemas', array( __CLASS__, 'cli_migrate_schemas' ) );
 			WP_CLI::add_command( 'formapress migrate', array( __CLASS__, 'cli_migrate' ) );
+			WP_CLI::add_command( 'formapress migrate-v2', array( __CLASS__, 'cli_migrate_v2' ) );
 			WP_CLI::add_command( 'formapress migrate-status', array( __CLASS__, 'cli_status' ) );
 			WP_CLI::add_command( 'formapress migrate-rollback', array( __CLASS__, 'cli_rollback' ) );
 		}
@@ -96,6 +97,197 @@ class FormaPress_Migration_Manager {
 			default:
 				WP_CLI::error( "Invalid migration type: {$type}. Use: instructors, companies, trainees, or all" );
 		}
+	}
+
+	/**
+	 * WP-CLI: Unified v2 migration command
+	 *
+	 * Runs complete migration in correct sequence:
+	 * 1. Person migrations (instructors → companies → trainees)
+	 * 2. Token migration (trainee, instructor, referent)
+	 * 3. Token linking (trainee → instructor)
+	 * 4. Verification
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--dry-run]
+	 * : Run migration without making changes
+	 *
+	 * [--force]
+	 * : Force re-migration even if already completed
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     # Preview complete migration
+	 *     wp formapress migrate-v2 --dry-run
+	 *
+	 *     # Run complete migration on production
+	 *     wp formapress migrate-v2 --force
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public static function cli_migrate_v2( $args, $assoc_args ) {
+		$dry_run = isset( $assoc_args['dry-run'] );
+		$force   = isset( $assoc_args['force'] );
+
+		WP_CLI::line( '' );
+		WP_CLI::line( WP_CLI::colorize( '%Y╔═══════════════════════════════════════════════════════════╗%n' ) );
+		WP_CLI::line( WP_CLI::colorize( '%Y║        FormaPress v1 → v2 Complete Migration             ║%n' ) );
+		WP_CLI::line( WP_CLI::colorize( '%Y╚═══════════════════════════════════════════════════════════╝%n' ) );
+		WP_CLI::line( '' );
+
+		if ( $dry_run ) {
+			WP_CLI::warning( '🔍 DRY RUN MODE - No changes will be made' );
+			WP_CLI::line( '' );
+		}
+
+		if ( $force ) {
+			WP_CLI::warning( '⚠️  FORCE MODE - Will re-migrate existing data' );
+			WP_CLI::line( '' );
+		}
+
+		$start_time = microtime( true );
+		$steps      = array();
+
+		// Step 1: Migrate persons.
+		WP_CLI::line( WP_CLI::colorize( '%B▶ Step 1/5: Person Migration%n' ) );
+		WP_CLI::line( '' );
+
+		$step_start = microtime( true );
+		self::migrate_instructors( $dry_run, null, $force );
+		self::migrate_companies( $dry_run, null, $force );
+		self::migrate_trainees( $dry_run, null, $force );
+		$steps['persons'] = microtime( true ) - $step_start;
+
+		WP_CLI::line( '' );
+		WP_CLI::success( sprintf( 'Person migration completed in %.2fs', $steps['persons'] ) );
+		WP_CLI::line( '' );
+
+		// Step 2: Migrate tokens.
+		WP_CLI::line( WP_CLI::colorize( '%B▶ Step 2/5: Token Migration%n' ) );
+		WP_CLI::line( '' );
+
+		if ( ! class_exists( 'FormaPress_Token_Migration' ) ) {
+			WP_CLI::error( 'FormaPress_Token_Migration class not found. Make sure zformations plugin is active.' );
+			return;
+		}
+
+		$step_start = microtime( true );
+		$token_args = array(
+			'dry_run' => $dry_run,
+			'force'   => $force,
+			'verbose' => true,
+		);
+
+		$token_results = array(
+			'trainee'    => FormaPress_Token_Migration::migrate_trainee_tokens( $token_args ),
+			'instructor' => FormaPress_Token_Migration::migrate_instructor_tokens( $token_args ),
+			'referent'   => FormaPress_Token_Migration::migrate_referent_tokens( $token_args ),
+		);
+
+		$total_tokens = $token_results['trainee']['migrated']
+			+ $token_results['instructor']['migrated']
+			+ $token_results['referent']['migrated'];
+
+		$steps['tokens'] = microtime( true ) - $step_start;
+
+		WP_CLI::line( '' );
+		WP_CLI::success( sprintf( 'Token migration completed: %d tokens in %.2fs', $total_tokens, $steps['tokens'] ) );
+		WP_CLI::line( '' );
+
+		// Step 3: Link trainee tokens.
+		WP_CLI::line( WP_CLI::colorize( '%B▶ Step 3/5: Link Trainee Tokens%n' ) );
+		WP_CLI::line( '' );
+
+		$step_start = microtime( true );
+		$trainee_link_result = FormaPress_Token_Migration::update_trainee_tokens_to_v2_persons(
+			array(
+				'dry_run' => $dry_run,
+				'verbose' => true,
+			)
+		);
+		$steps['trainee_links'] = microtime( true ) - $step_start;
+
+		WP_CLI::line( '' );
+		WP_CLI::success( sprintf(
+			'Trainee token linking completed: %d linked in %.2fs',
+			$trainee_link_result['updated'],
+			$steps['trainee_links']
+		) );
+		WP_CLI::line( '' );
+
+		// Step 4: Link instructor tokens.
+		WP_CLI::line( WP_CLI::colorize( '%B▶ Step 4/5: Link Instructor Tokens%n' ) );
+		WP_CLI::line( '' );
+
+		$step_start = microtime( true );
+		$instructor_link_result = FormaPress_Token_Migration::update_instructor_tokens_to_v2_persons(
+			array(
+				'dry_run' => $dry_run,
+				'verbose' => true,
+			)
+		);
+		$steps['instructor_links'] = microtime( true ) - $step_start;
+
+		WP_CLI::line( '' );
+		WP_CLI::success( sprintf(
+			'Instructor token linking completed: %d linked in %.2fs',
+			$instructor_link_result['updated'],
+			$steps['instructor_links']
+		) );
+		WP_CLI::line( '' );
+
+		// Step 5: Verification.
+		WP_CLI::line( WP_CLI::colorize( '%B▶ Step 5/5: Verification%n' ) );
+		WP_CLI::line( '' );
+
+		$step_start = microtime( true );
+		$verify_results = FormaPress_Token_Migration::verify_migration();
+		$steps['verification'] = microtime( true ) - $step_start;
+
+		foreach ( $verify_results['log'] as $log_line ) {
+			if ( strpos( $log_line, 'WARNING' ) !== false ) {
+				WP_CLI::warning( $log_line );
+			} else {
+				WP_CLI::line( $log_line );
+			}
+		}
+
+		WP_CLI::line( '' );
+		if ( $verify_results['duplicates'] > 0 ) {
+			WP_CLI::error( 'Verification failed - duplicate tokens found!' );
+			return;
+		}
+
+		WP_CLI::success( sprintf( 'Verification completed in %.2fs', $steps['verification'] ) );
+
+		// Final summary.
+		$total_time = microtime( true ) - $start_time;
+
+		WP_CLI::line( '' );
+		WP_CLI::line( WP_CLI::colorize( '%G╔═══════════════════════════════════════════════════════════╗%n' ) );
+		WP_CLI::line( WP_CLI::colorize( '%G║                  Migration Complete! ✓                    ║%n' ) );
+		WP_CLI::line( WP_CLI::colorize( '%G╚═══════════════════════════════════════════════════════════╝%n' ) );
+		WP_CLI::line( '' );
+		WP_CLI::line( 'Summary:' );
+		WP_CLI::line( sprintf( '  • Persons migrated: instructors + companies + trainees' ) );
+		WP_CLI::line( sprintf( '  • Tokens migrated: %d', $total_tokens ) );
+		WP_CLI::line( sprintf( '  • Tokens linked: %d trainee + %d instructor',
+			$trainee_link_result['updated'],
+			$instructor_link_result['updated']
+		) );
+		WP_CLI::line( '' );
+		WP_CLI::line( sprintf( 'Total time: %.2fs', $total_time ) );
+		WP_CLI::line( '' );
+
+		if ( $dry_run ) {
+			WP_CLI::line( WP_CLI::colorize( '%YRun without --dry-run to perform actual migration%n' ) );
+		} else {
+			WP_CLI::line( WP_CLI::colorize( '%G🎉 Migration successful! Your v2 system is ready.%n' ) );
+		}
+
+		WP_CLI::line( '' );
 	}
 
 	/**
@@ -232,7 +424,7 @@ class FormaPress_Migration_Manager {
 					// Get v1 data.
 					$v1_data = FormaPress_Person_Manager::get_v1_instructor( $instructor->ID );
 
-					// Check if already migrated.
+					// Check if already migrated by v1 ID.
 					$existing = get_posts(
 						array(
 							'post_type'  => 'crm_person',
@@ -242,31 +434,54 @@ class FormaPress_Migration_Manager {
 						)
 					);
 
+					// Also check by email if not found by v1 ID.
+					if ( empty( $existing ) && ! empty( $v1_data['email'] ) ) {
+						$existing_by_email = FormaPress_Person_Manager::find_by_email( $v1_data['email'] );
+						if ( $existing_by_email ) {
+							$existing = array( $existing_by_email );
+						}
+					}
+
 					if ( ! empty( $existing ) && ! $force ) {
 						$progress->tick();
 						continue;
-					}
-
-					// Extract civilite from attributes (if present).
+					}               // Extract civilite from attributes (if present).
 					$civilite = '';
 					if ( ! empty( $v1_data['attributes']['civilite'] ) ) {
 						$civilite = $v1_data['attributes']['civilite'];
 					}
 
-					// Create v2 person.
-					$person_id = FormaPress_Person_Manager::create_person(
-						array(
-							'civilite'    => $civilite,
-							'prenom'      => $v1_data['prenom'] ?? '',
-							'nom'         => $v1_data['nom'] ?? '',
-							'email'       => $v1_data['email'] ?? '',
-							'telephone'   => $v1_data['telephone'] ?? '',
-							'person_type' => 'instructor',
-						)
-					);
+					// If person exists and --force, update it. Otherwise create new.
+					if ( ! empty( $existing ) && $force ) {
+						$person_id = $existing[0];
+						// Update core person data.
+						wp_update_post(
+							array(
+								'ID'         => $person_id,
+								'post_title' => ( $v1_data['prenom'] ?? '' ) . ' ' . strtoupper( $v1_data['nom'] ?? '' ),
+							)
+						);
+						update_post_meta( $person_id, '_crm_civilite', $civilite );
+						update_post_meta( $person_id, '_crm_prenom', $v1_data['prenom'] ?? '' );
+						update_post_meta( $person_id, '_crm_nom', $v1_data['nom'] ?? '' );
+						update_post_meta( $person_id, '_crm_email', $v1_data['email'] ?? '' );
+						update_post_meta( $person_id, '_crm_telephone', $v1_data['telephone'] ?? '' );
+					} else {
+						// Create v2 person.
+						$person_id = FormaPress_Person_Manager::create_person(
+							array(
+								'civilite'    => $civilite,
+								'prenom'      => $v1_data['prenom'] ?? '',
+								'nom'         => $v1_data['nom'] ?? '',
+								'email'       => $v1_data['email'] ?? '',
+								'telephone'   => $v1_data['telephone'] ?? '',
+								'person_type' => 'instructor',
+							)
+						);
 
-					if ( is_wp_error( $person_id ) ) {
-						throw new Exception( $person_id->get_error_message() );
+						if ( is_wp_error( $person_id ) ) {
+							throw new Exception( $person_id->get_error_message() );
+						}
 					}
 
 					// Store v1 reference.
@@ -278,17 +493,17 @@ class FormaPress_Migration_Manager {
 						update_post_meta( $person_id, '_crm_v1_sessions_ids', $sessions_ids );
 					}
 
-					// Save ALL custom attributes using core attributes system.
+					// Week 4: Save ALL custom attributes using ATTRIBUTE SYSTEM (not core attributes).
+					// Use proper v2 attribute meta keys: crm_person_instructor_attributes_*.
 					if ( ! empty( $v1_data['attributes'] ) && is_array( $v1_data['attributes'] ) ) {
-						ZForm_Attributes_Core::save_attributes(
-							$person_id,
-							'instructor',
-							$v1_data['attributes'],
-							'crm_person_instructor_attributs_'
-						);
-					}
-
-					++$migrated;
+						$instructor_schema = get_option( 'crm_person_instructor_attributes', array() );
+						foreach ( $v1_data['attributes'] as $field_key => $field_value ) {
+							if ( ! empty( $field_value ) || '0' === $field_value ) {
+								$meta_key = 'crm_person_instructor_attributes_' . sanitize_key( $field_key );
+								update_post_meta( $person_id, $meta_key, $field_value );
+							}
+						}
+					}                   ++$migrated;
 				} else {
 					WP_CLI::log( "  Would migrate: {$instructor->post_title} (ID: {$instructor->ID})" );
 					++$migrated;
@@ -441,14 +656,15 @@ class FormaPress_Migration_Manager {
 			WP_CLI::log( 'DRY RUN - Showing what would be migrated:' );
 		}
 
+		// Track persons created/reused in THIS migration run to avoid duplicates within same batch.
+		$person_by_email = array();
+
 		// Get registrations in batches.
 		$batch_size = 100;
 		$offset     = 0;
 		$migrated   = 0;
 		$errors     = 0;
-		$progress   = \WP_CLI\Utils\make_progress_bar( 'Migrating trainees', $limit ?? $total );
-
-		while ( true ) {
+		$progress   = \WP_CLI\Utils\make_progress_bar( 'Migrating trainees', $limit ?? $total );        while ( true ) {
 			$batch_limit = $limit ? min( $batch_size, $limit - $migrated ) : $batch_size;
 			if ( $batch_limit <= 0 ) {
 				break;
@@ -501,20 +717,28 @@ class FormaPress_Migration_Manager {
 						$civilite     = isset( $civilite_map[ $v1_civilite ] ) ? $civilite_map[ $v1_civilite ] : $v1_civilite;
 
 						// Check if person exists by email (same trainee in multiple sessions).
-						$existing_person_id = FormaPress_Person_Manager::find_by_email( $v1_data['email'] );
+						// First check in-memory cache from THIS migration run.
+						$email_key = sanitize_email( $v1_data['email'] );
+						if ( isset( $person_by_email[ $email_key ] ) ) {
+							$existing_person_id = $person_by_email[ $email_key ];
+						} else {
+							// Check database for existing person.
+							$existing_person_id = FormaPress_Person_Manager::find_by_email( $v1_data['email'] );
+						}
 
 						if ( $existing_person_id ) {
 							// Person exists - reuse them for this session.
 							$person_id = $existing_person_id;
-
-							// Add trainee type if not already set.
-							$existing_types = wp_get_post_terms( $person_id, 'person_type', array( 'fields' => 'slugs' ) );
+							// Cache in memory for subsequent registrations.
+							$person_by_email[ $email_key ] = $person_id;                            // Add trainee type if not already set.
+							$existing_types                = wp_get_post_terms( $person_id, 'person_type', array( 'fields' => 'slugs' ) );
+							if ( is_wp_error( $existing_types ) ) {
+								$existing_types = array();
+							}
 							if ( ! in_array( 'trainee', $existing_types, true ) ) {
 								$existing_types[] = 'trainee';
 								wp_set_object_terms( $person_id, $existing_types, 'person_type' );
-							}
-
-							// Update civilite if we have a better value.
+							}                           // Update civilite if we have a better value.
 							if ( ! empty( $civilite ) ) {
 								update_post_meta( $person_id, '_crm_civilite', $civilite );
 							}
@@ -534,22 +758,50 @@ class FormaPress_Migration_Manager {
 							if ( is_wp_error( $person_id ) ) {
 								throw new Exception( $person_id->get_error_message() );
 							}
-						}
 
-						// Store v1 session/registration links (allow multiple).
+							// Cache newly created person for subsequent registrations with same email.
+							$person_by_email[ $email_key ] = $person_id;
+						}                       // Store v1 session/registration links (allow multiple).
 						add_post_meta( $person_id, '_crm_v1_registration_id', $reg->id, false );
 						add_post_meta( $person_id, '_crm_v1_formation_id', $reg->formation_id, false );
 						add_post_meta( $person_id, '_crm_v1_session_id', $reg->session_id, false );
 						add_post_meta( $person_id, '_crm_v1_zqpm_id', $v1_data['zqpm_id'], false );
 
-						// Save ALL custom attributes using core attributes system.
+						// Save attributes using v2 schema: crm_person_trainee_attributes_*.
+						// Include BOTH core fields AND custom fields for meta box display.
+						$trainee_schema = get_option( 'crm_person_trainee_attributes', array() );
+
+						// Build complete attribute data starting with CORE person fields from v1_data root.
+						$attribute_data = array(
+							'civilite' => $civilite,
+							'nom'      => $v1_data['nom'] ?? '',
+							'prenom'   => $v1_data['prenom'] ?? '',
+							'email'    => $v1_data['email'] ?? '',
+							'tel'      => $v1_data['telephone'] ?? '',
+						);
+
+						// Add ADDITIONAL custom fields from v1 registration attributes (adresse, cp, ville, etc.).
+						// Only add fields that are NOT core fields (to avoid overwriting with empty values).
 						if ( ! empty( $v1_data['attributes'] ) && is_array( $v1_data['attributes'] ) ) {
-							ZForm_Attributes_Core::save_attributes(
-								$person_id,
-								'trainee',
-								$v1_data['attributes'],
-								'crm_person_trainee_attributs_'
-							);
+							$core_fields = array( 'name', 'firstname', 'mail', 'telephone', 'civilite' );
+
+							foreach ( $v1_data['attributes'] as $v1_key => $field_value ) {
+								// Skip core fields - they're already set from v1_data root level.
+								if ( in_array( $v1_key, $core_fields, true ) ) {
+									continue;
+								}
+
+								// Use v1 key directly for non-core fields (adresse, cp, ville, societe, etc.).
+								$attribute_data[ $v1_key ] = $field_value;
+							}
+						}
+
+						// Save all attributes to individual meta keys.
+						foreach ( $attribute_data as $field_key => $field_value ) {
+							if ( isset( $trainee_schema[ $field_key ] ) ) {
+								$meta_key = 'crm_person_trainee_attributes_' . sanitize_key( $field_key );
+								update_post_meta( $person_id, $meta_key, $field_value );
+							}
 						}
 
 						++$migrated;

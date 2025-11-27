@@ -252,8 +252,23 @@ class FormaPress_Person_Meta_Boxes {
 
 		// Render ALL fields for each person type.
 		foreach ( $person_types as $type ) {
-			// Get FULL schema (don't filter out core fields).
-			$schema = ZForm_Attributes_Core::get_attributes_schema( $type );
+			// Map person type to attribute option name.
+			$option_map = array(
+				'instructor'      => 'crm_person_instructor_attributes',
+				'company_contact' => 'crm_person_referent_attributes',
+				'trainee'         => 'crm_person_trainee_attributes',
+				'funder'          => 'crm_person_funder_attributes',
+				'prospect'        => 'crm_person_prospect_attributes',
+			);
+
+			// Get schema from the CRM attribute system.
+			$option_name = isset( $option_map[ $type ] ) ? $option_map[ $type ] : null;
+			if ( ! $option_name ) {
+				// Fallback to old zform system for unmapped types.
+				$schema = ZForm_Attributes_Core::get_attributes_schema( $type );
+			} else {
+				$schema = get_option( $option_name, array() );
+			}
 
 			if ( empty( $schema ) ) {
 				continue;
@@ -281,19 +296,40 @@ class FormaPress_Person_Meta_Boxes {
 					continue;
 				}
 
-				// ALL fields stored as attributes: crm_person_{type}_attributs_{slug}.
-				$meta_key    = 'crm_person_' . $type . '_attributs_' . $field_slug;
-				$field_value = get_post_meta( $post->ID, $meta_key, true );
+				// Use CRM v2 attribute meta key pattern: crm_person_{type}_attributes_{slug}.
+				// Check both new (attributes) and old (attributs) patterns for backward compatibility.
+				$meta_key_new = 'crm_person_' . $type . '_attributes_' . $field_slug;
+				$meta_key_old = 'crm_person_' . $type . '_attributs_' . $field_slug;
 
-				// All fields use same naming pattern.
-				$field_name = 'crm_' . $type . '_attributs[' . $field_slug . ']';
-				$field_id   = 'crm_' . $type . '_' . $field_slug;
+				$field_value = get_post_meta( $post->ID, $meta_key_new, true );
+				if ( empty( $field_value ) && '0' !== $field_value ) {
+					// Fallback to old pattern if new doesn't exist.
+					$field_value = get_post_meta( $post->ID, $meta_key_old, true );
+				}
 
-				// Render field using core system.
+				// Field naming pattern for form submission (always use new pattern).
+				$field_name = 'crm_person_' . $type . '_attributes[' . $field_slug . ']';
+				$field_id   = 'crm_person_' . $type . '_attributes_' . $field_slug;
+
+				// Show locked indicator for v1 core fields.
+				$is_locked = ! empty( $field_config['locked'] );
+				$label     = esc_html( $field_config['name'] );
+				if ( $is_locked ) {
+					$label .= ' <span style="color: #2271b1; font-size: 11px;">(' . esc_html__( 'v1 core field', 'formapress-crm' ) . ')</span>';
+				}
+
+				// Render field.
 				echo '<tr' . ( $odd ? ' class="alternate"' : '' ) . '>';
-				echo '<th scope="row"><label for="' . esc_attr( $field_id ) . '">' . esc_html( $field_config['name'] ) . '</label></th>';
+				echo '<th scope="row"><label for="' . esc_attr( $field_id ) . '">' . $label . '</label></th>';
 				echo '<td>';
-				ZForm_Attributes_Core::render_field( $field_slug, $field_config, $field_value, $field_name, $field_id, $odd );
+
+				// Use custom renderer if available, otherwise use simple input.
+				if ( class_exists( 'ZForm_Attributes_Core' ) && method_exists( 'ZForm_Attributes_Core', 'render_field' ) ) {
+					ZForm_Attributes_Core::render_field( $field_slug, $field_config, $field_value, $field_name, $field_id, $odd );
+				} else {
+					self::render_custom_field( $type, $field_slug, $field_config, $field_value, $field_name, $field_id );
+				}
+
 				echo '</td>';
 				echo '</tr>';
 
@@ -311,10 +347,16 @@ class FormaPress_Person_Meta_Boxes {
 	 * @param string $field_slug Field slug
 	 * @param array  $field_config Field configuration
 	 * @param mixed  $value Current field value
+	 * @param string $field_name Field name attribute (optional, for override)
+	 * @param string $field_id Field ID attribute (optional, for override)
 	 */
-	private static function render_custom_field( $type, $field_slug, $field_config, $value ) {
-		$field_name = 'crm_custom_' . $type . '_' . $field_slug;
-		$field_id   = $field_name;
+	private static function render_custom_field( $type, $field_slug, $field_config, $value, $field_name = '', $field_id = '' ) {
+		if ( empty( $field_name ) ) {
+			$field_name = 'crm_person_' . $type . '_attributes[' . $field_slug . ']';
+		}
+		if ( empty( $field_id ) ) {
+			$field_id = 'crm_person_' . $type . '_attributes_' . $field_slug;
+		}
 		$field_type = $field_config['type'] ?? 'text';
 		$required   = ! empty( $field_config['required'] );
 
@@ -530,34 +572,39 @@ class FormaPress_Person_Meta_Boxes {
 			return;
 		}
 
-		// Get person types.
-		$person_types = isset( $_POST['crm_person_types'] ) && is_array( $_POST['crm_person_types'] )
-			? array_map( 'sanitize_text_field', wp_unslash( $_POST['crm_person_types'] ) )
-			: FormaPress_Person_Manager::get_person_types( $post_id );
+		// Save person types.
+		if ( isset( $_POST['crm_person_types'] ) && is_array( $_POST['crm_person_types'] ) ) {
+			$person_types = array_map( 'sanitize_text_field', wp_unslash( $_POST['crm_person_types'] ) );
+			wp_set_object_terms( $post_id, $person_types, 'person_type' );
+		}
 
-		// Save ALL fields as attributes for each person type.
+		// Get person types (after saving).
+		$person_types = FormaPress_Person_Manager::get_person_types( $post_id );
+
+		// Save ALL fields as CRM v2 attributes for each person type.
 		foreach ( $person_types as $type ) {
-			$field_name_key = 'crm_' . $type . '_attributs';
+			$field_name_key = 'crm_person_' . $type . '_attributes';
 
 			if ( isset( $_POST[ $field_name_key ] ) && is_array( $_POST[ $field_name_key ] ) ) {
-				$attributes = array();
-
 				foreach ( wp_unslash( $_POST[ $field_name_key ] ) as $field_slug => $value ) {
-					if ( is_array( $value ) ) {
-						$attributes[ $field_slug ] = array_map( 'sanitize_text_field', $value );
-					} else {
-						$attributes[ $field_slug ] = sanitize_text_field( $value );
-					}
-				}
+					$meta_key_new = 'crm_person_' . $type . '_attributes_' . sanitize_key( $field_slug );
+					$meta_key_old = 'crm_person_' . $type . '_attributs_' . sanitize_key( $field_slug );
 
-				// Save using core attributes system.
-				if ( ! empty( $attributes ) ) {
-					ZForm_Attributes_Core::save_attributes(
-						$post_id,
-						$type,
-						$attributes,
-						'crm_person_' . $type . '_attributs_'
-					);
+					if ( is_array( $value ) ) {
+						$sanitized_value = array_map( 'sanitize_text_field', $value );
+					} else {
+						$sanitized_value = sanitize_text_field( $value );
+					}
+
+					// Save to NEW pattern and clean up OLD pattern.
+					if ( ! empty( $sanitized_value ) || '0' === $sanitized_value ) {
+						update_post_meta( $post_id, $meta_key_new, $sanitized_value );
+					} else {
+						delete_post_meta( $post_id, $meta_key_new );
+					}
+
+					// Clean up old pattern if it exists.
+					delete_post_meta( $post_id, $meta_key_old );
 				}
 			}
 		}
@@ -565,7 +612,7 @@ class FormaPress_Person_Meta_Boxes {
 		// Update _crm_email index for find_by_email() lookups.
 		$email_field = null;
 		foreach ( $person_types as $type ) {
-			$field_name_key = 'crm_' . $type . '_attributs';
+			$field_name_key = 'crm_person_' . $type . '_attributes';
 			if ( isset( $_POST[ $field_name_key ]['mail'] ) ) {
 				$email_field = sanitize_email( wp_unslash( $_POST[ $field_name_key ]['mail'] ) );
 				break;
@@ -576,6 +623,16 @@ class FormaPress_Person_Meta_Boxes {
 		}
 		if ( $email_field ) {
 			update_post_meta( $post_id, '_crm_email', $email_field );
+		}
+
+		// Save company association.
+		if ( isset( $_POST['crm_company_id'] ) ) {
+			$company_id = absint( $_POST['crm_company_id'] );
+			if ( $company_id > 0 ) {
+				update_post_meta( $post_id, '_crm_company_id', $company_id );
+			} else {
+				delete_post_meta( $post_id, '_crm_company_id' );
+			}
 		}
 	}
 

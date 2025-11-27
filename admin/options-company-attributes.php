@@ -106,4 +106,19 @@ $crm_company_attributes = get_option( 'crm_company_attributes', array() );
 
 <p><input class="button-secondary add-attr-btn" type="button" data-table="company-attrib-table" data-option="crm_company_attributes"
 		value="<?php esc_attr_e( 'Add attribute', 'formapress-crm' ); ?>" /><br></p>
+
+<script>
+var i18n_attrs = {
+	"text": "<?php esc_attr_e( 'Text', 'zformations' ); ?>",
+	"number": "<?php esc_attr_e( 'Number', 'zformations' ); ?>",
+	"editor": "<?php esc_attr_e( 'Editor', 'zformations' ); ?>",
+	"list": "<?php esc_attr_e( 'Formatted list', 'zformations' ); ?>",
+	"download": "<?php esc_attr_e( 'Download', 'zformations' ); ?>",
+	"image": "<?php echo wp_kses_post( __( 'Image', 'zformations' ) ); ?>",
+	"video": "<?php echo wp_kses_post( __( 'Video', 'zformations' ) ); ?>",
+	"checkbox": "<?php echo wp_kses_post( __( 'Checkbox', 'zformations' ) ); ?>",
+	"radio": "<?php echo wp_kses_post( __( 'Radio', 'zformations' ) ); ?>"
+};
+</script>
+
 <p><?php submit_button(); ?></p>

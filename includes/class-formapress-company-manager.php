@@ -590,7 +590,12 @@ class FormaPress_Company_Manager {
 			'errors'     => array(),
 		);
 
-		// Read v1 company data
+		// Read v1 company data.
+		$v1_cp   = get_post_meta( $entreprise_id, 'cp', true );
+		$v1_cp   = empty( $v1_cp ) ? get_post_meta( $entreprise_id, 'code_postal', true ) : $v1_cp;
+		$v1_site = get_post_meta( $entreprise_id, 'site', true );
+		$v1_site = empty( $v1_site ) ? get_post_meta( $entreprise_id, 'siteweb', true ) : $v1_site;
+
 		$v1_data = array(
 			'name'               => $entreprise->post_title,
 			'siret'              => get_post_meta( $entreprise_id, 'siret', true ),
@@ -600,47 +605,111 @@ class FormaPress_Company_Manager {
 			'telephone'          => get_post_meta( $entreprise_id, 'telephone', true ),
 			'adresse'            => get_post_meta( $entreprise_id, 'adresse', true ),
 			'ville'              => get_post_meta( $entreprise_id, 'ville', true ),
-			'code_postal'        => get_post_meta( $entreprise_id, 'code_postal', true ),
+			'code_postal'        => $v1_cp,
 			'pays'               => get_post_meta( $entreprise_id, 'pays', true ),
-			'site_web'           => get_post_meta( $entreprise_id, 'siteweb', true ),
+			'site_web'           => $v1_site,
 			'numero_declaration' => get_post_meta( $entreprise_id, 'numero_declaration', true ),
 		);
 
-		// Determine company type from v1 data
-		$company_type = 'client'; // Default
+		// Read v1 attribute data (all fields for v2 attribute system).
+		$v1_attributes = array(
+			'raison-sociale' => $entreprise->post_title,
+			'siret'          => get_post_meta( $entreprise_id, 'siret', true ),
+			'adresse'        => get_post_meta( $entreprise_id, 'adresse', true ),
+			'cp'             => $v1_cp,
+			'ville'          => get_post_meta( $entreprise_id, 'ville', true ),
+			'site'           => $v1_site,
+			'tel'            => get_post_meta( $entreprise_id, 'telephone', true ),
+			'email'          => get_post_meta( $entreprise_id, 'email', true ),
+			'pays'           => get_post_meta( $entreprise_id, 'pays', true ),
+			'naf'            => get_post_meta( $entreprise_id, 'naf', true ),
+			'nda'            => get_post_meta( $entreprise_id, 'nda', true ),
+		);
+
+		// Check if company already exists (for --force updates).
+		$existing = get_posts(
+			array(
+				'post_type'  => 'crm_company',
+				'meta_key'   => '_crm_v1_entreprise_id',
+				'meta_value' => $entreprise_id,
+				'fields'     => 'ids',
+			)
+		);
+
+		// Determine company type from v1 data.
+		$company_type = 'client'; // Default.
 		$is_funder    = get_post_meta( $entreprise_id, 'is_financeur', true );
 		if ( $is_funder ) {
 			$company_type = 'funder';
 		}
 
-		// Create v2 company
-		$company_id = self::create_company(
-			array(
-				'name'               => $v1_data['name'],
-				'company_type'       => $company_type,
-				'siret'              => $v1_data['siret'],
-				'nda'                => $v1_data['nda'],
-				'naf'                => $v1_data['naf'],
-				'email'              => $v1_data['email'],
-				'telephone'          => $v1_data['telephone'],
-				'adresse'            => $v1_data['adresse'],
-				'ville'              => $v1_data['ville'],
-				'code_postal'        => $v1_data['code_postal'],
-				'pays'               => $v1_data['pays'],
-				'site_web'           => $v1_data['site_web'],
-				'numero_declaration' => $v1_data['numero_declaration'],
-			)
-		);
+		if ( ! empty( $existing ) ) {
+			// Update existing company.
+			$company_id = $existing[0];
 
-		if ( is_wp_error( $company_id ) ) {
-			$results['errors'][] = 'Company creation failed: ' . $company_id->get_error_message();
-			return $results;
+			// Update post title and type.
+			wp_update_post(
+				array(
+					'ID'         => $company_id,
+					'post_title' => $v1_data['name'],
+				)
+			);
+
+			// Update company type taxonomy.
+			wp_set_object_terms( $company_id, $company_type, 'company_type' );
+
+			// Update all core meta fields.
+			update_post_meta( $company_id, '_crm_siret', $v1_data['siret'] );
+			update_post_meta( $company_id, '_crm_nda', $v1_data['nda'] );
+			update_post_meta( $company_id, '_crm_naf', $v1_data['naf'] );
+			update_post_meta( $company_id, '_crm_email', $v1_data['email'] );
+			update_post_meta( $company_id, '_crm_telephone', $v1_data['telephone'] );
+			update_post_meta( $company_id, '_crm_adresse', $v1_data['adresse'] );
+			update_post_meta( $company_id, '_crm_ville', $v1_data['ville'] );
+			update_post_meta( $company_id, '_crm_code_postal', $v1_data['code_postal'] );
+			update_post_meta( $company_id, '_crm_pays', $v1_data['pays'] );
+			update_post_meta( $company_id, '_crm_site_web', $v1_data['site_web'] );
+			update_post_meta( $company_id, '_crm_numero_declaration', $v1_data['numero_declaration'] );
+		} else {
+			// Create new v2 company.
+			$company_id = self::create_company(
+				array(
+					'name'               => $v1_data['name'],
+					'company_type'       => $company_type,
+					'siret'              => $v1_data['siret'],
+					'nda'                => $v1_data['nda'],
+					'naf'                => $v1_data['naf'],
+					'email'              => $v1_data['email'],
+					'telephone'          => $v1_data['telephone'],
+					'adresse'            => $v1_data['adresse'],
+					'ville'              => $v1_data['ville'],
+					'code_postal'        => $v1_data['code_postal'],
+					'pays'               => $v1_data['pays'],
+					'site_web'           => $v1_data['site_web'],
+					'numero_declaration' => $v1_data['numero_declaration'],
+				)
+			);
+
+			if ( is_wp_error( $company_id ) ) {
+				$results['errors'][] = 'Company creation failed: ' . $company_id->get_error_message();
+				return $results;
+			}
+
+			// Store v1 reference for compatibility.
+			update_post_meta( $company_id, '_crm_v1_entreprise_id', $entreprise_id );
 		}
 
 		$results['company_id'] = $company_id;
 
-		// Store v1 reference for compatibility
-		update_post_meta( $company_id, '_crm_v1_entreprise_id', $entreprise_id );
+		// Week 4: Save v1 data using ATTRIBUTE SYSTEM for locked v1 fields.
+		// This ensures backward compatibility with v1 structure.
+		$company_schema = get_option( 'crm_company_attributes', array() );
+		foreach ( $v1_attributes as $field_key => $field_value ) {
+			if ( isset( $company_schema[ $field_key ] ) && ( ! empty( $field_value ) || '0' === $field_value ) ) {
+				$meta_key = 'crm_company_attributes_' . $field_key;
+				update_post_meta( $company_id, $meta_key, $field_value );
+			}
+		}
 
 		// EXTRACT REFERENTS from v1 meta (key is 'referent' not 'referents')
 		// v1 stores referents as serialized zqpmReferent objects
@@ -663,21 +732,38 @@ class FormaPress_Company_Manager {
 				$existing_person_id = FormaPress_Person_Manager::find_by_email( $email );
 
 				if ( $existing_person_id ) {
-					// Person exists - DON'T overwrite company_id (keep first assignment)
-					// Instead, store this as an additional v1 relationship
+					// Person exists - update core data and add this company relationship.
 					$person_id = $existing_person_id;
 
-					// Add company_contact type if not already set
+					// Update core person data.
+					$prenom = $referent_data['prenom'] ?? '';
+					$nom    = $referent_data['nom'] ?? '';
+					wp_update_post(
+						array(
+							'ID'         => $person_id,
+							'post_title' => $prenom . ' ' . strtoupper( $nom ),
+						)
+					);                  // Update core meta fields.
+					update_post_meta( $person_id, '_crm_civilite', $referent_data['civilite'] ?? '' );
+					update_post_meta( $person_id, '_crm_prenom', $referent_data['prenom'] ?? '' );
+					update_post_meta( $person_id, '_crm_nom', $referent_data['nom'] ?? '' );
+					update_post_meta( $person_id, '_crm_email', $email );
+					update_post_meta( $person_id, '_crm_telephone', $referent_data['tel'] ?? '' );
+
+					// Add company_contact type if not already set.
 					$existing_types = wp_get_post_terms( $person_id, 'person_type', array( 'fields' => 'slugs' ) );
+					if ( is_wp_error( $existing_types ) ) {
+						$existing_types = array();
+					}
 					if ( ! in_array( 'company_contact', $existing_types, true ) ) {
 						$existing_types[] = 'company_contact';
 						wp_set_object_terms( $person_id, $existing_types, 'person_type' );
 					}
 
-					// Store this additional v1 company relationship (allow multiple)
+					// Store this additional v1 company relationship (allow multiple).
 					add_post_meta( $person_id, '_crm_v1_entreprise_id', $entreprise_id, false );
 
-					// Update fonction if provided (will use last value)
+					// Update fonction if provided (will use last value).
 					if ( ! empty( $referent_data['poste'] ) ) {
 						update_post_meta( $person_id, '_crm_fonction', sanitize_text_field( $referent_data['poste'] ) );
 					}
@@ -706,6 +792,25 @@ class FormaPress_Company_Manager {
 
 				// Store v1 referent index (for this specific company).
 				update_post_meta( $person_id, '_crm_v1_referent_index', $index );
+
+				// Week 4: Save referent data using ATTRIBUTE SYSTEM.
+				// Use company_contact type slug for meta keys to match person_type taxonomy.
+				$referent_schema   = get_option( 'crm_person_referent_attributes', array() );
+				$v1_referent_attrs = array(
+					'civilite' => $referent_data['civilite'] ?? '',
+					'nom'      => $referent_data['nom'] ?? '',
+					'prenom'   => $referent_data['prenom'] ?? '',
+					'poste'    => $referent_data['poste'] ?? '',
+					'tel'      => $referent_data['tel'] ?? '',
+					'mail'     => $referent_data['mail'] ?? '',
+				);
+				foreach ( $v1_referent_attrs as $field_key => $field_value ) {
+					if ( isset( $referent_schema[ $field_key ] ) && ( ! empty( $field_value ) || '0' === $field_value ) ) {
+						// Use company_contact type slug in meta key.
+						$meta_key = 'crm_person_company_contact_attributes_' . $field_key;
+						update_post_meta( $person_id, $meta_key, $field_value );
+					}
+				}
 
 				// NOTE: _crm_v1_entreprise_id is set inside if/else blocks to handle multiple company links.
 

@@ -1,15 +1,24 @@
 <?php
 /**
- * Plugin Name: Formapress CRM
- * Plugin URI:  https://example.com/formapress-crm
- * Description: A CRM plugin to augment the Formapress suite, managing contacts, opportunities, and activities.
- * Version:     0.1.0
- * Author:      Your Name
- * Author URI:  https://example.com
- * License:     GPL-2.0-or-later
- * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: formapress-crm
- * Domain Path: /languages
+ * FORMA PRESS - CRM
+ *
+ * @package           zform
+ * @author            Philippe Zénone
+ * @copyright         2021 Philippe Zénone
+ * @license           GPL-2.0-or-later
+ *
+ * @wordpress-plugin
+ * Plugin Name:       FORMA PRESS - CRM
+ * Plugin URI:        https://philippezenone.net/repo/wordpress/zformations/
+ * Description:       A CRM plugin to augment the Formapress suite, managing contacts, opportunities, and activities.
+ * Version:           2.0.1
+ * Requires at least: 5.2
+ * Requires PHP:      7.2
+ * Author:            Philippe Zénone
+ * Author URI:        https://philippezenone.net/
+ * Text Domain:       formapress-crm
+ * License:           GPL v2 or later
+ * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  */
 
 // If this file is called directly, abort.
@@ -34,7 +43,12 @@ add_action( 'plugins_loaded', 'formapress_crm_load_textdomain' );
 
 /**
  * Include v2 Core Classes (Week 2+)
+ * Note: Person and Company CPTs are now registered in zFormations base plugin.
+ * These managers are kept for their utility functions only.
  */
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/default-schemas.php'; // Week 4: Immutable attribute schemas.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/attribute-sanitization.php'; // Week 4: Sanitization filters for locked fields.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/migration-v2-attributes.php'; // Week 4: Unified v1→v2 attribute migration.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-person-manager.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-company-manager.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-migration-manager.php';
@@ -44,12 +58,14 @@ require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-shortcode-ma
  * Include v2 Admin UI
  */
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/admin/class-formapress-person-meta-boxes.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/admin/class-formapress-company-meta-boxes.php';
 
 /**
  * Include CPTs and Taxonomies
+ * Note: crm_person and crm_company CPTs are now in zFormations base (includes/cpt-person.php, includes/cpt-company.php)
  */
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-person.php';
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/taxonomy-company-role.php';
+// require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-person.php'; // Moved to zFormations.
+// require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/taxonomy-company-role.php'; // Moved to zFormations.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/synchronization.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/legacy-sync.php'; // Bridge to old system.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/migration-reimport.php'; // Re-import with all fields.
@@ -60,9 +76,11 @@ require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-activity.php';
 
 /**
  * Initialize v2 Managers
+ * Note: Person and Company managers' init() disabled to prevent duplicate CPT registration.
+ * CPTs are now registered in zFormations. Managers kept for utility functions.
  */
-FormaPress_Person_Manager::init();
-FormaPress_Company_Manager::init();
+// FormaPress_Person_Manager::init(); // Disabled - CPT now in zFormations.
+// FormaPress_Company_Manager::init(); // Disabled - CPT now in zFormations.
 FormaPress_Shortcode_Manager::init();
 
 /**
@@ -149,12 +167,62 @@ add_action( 'admin_enqueue_scripts', 'formapress_crm_admin_enqueue_scripts_style
  */
 function formapress_crm_activate() {
 	// Register CPTs and Taxonomies to ensure rewrite rules are flushed.
-	formapress_crm_register_person_cpt();
-	formapress_crm_register_company_role_taxonomy();
+	// Note: crm_person and crm_company are now in zFormations base.
 	formapress_crm_register_opportunity_cpt();
 	formapress_crm_register_invoice_cpt();
 	formapress_crm_register_activity_cpt();
 	flush_rewrite_rules();
+
+	// Week 4: Initialize default attribute schemas for backward compatibility with v1.
+	// These options store immutable field definitions that cannot be deleted by admins.
+	formapress_crm_initialize_default_attributes();
+}
+
+/**
+ * Initialize default attribute schemas on plugin activation.
+ *
+ * This ensures v1 core fields (from zqpm_entreprise, zqpm_financeur, referent)
+ * are present as locked attributes in the CRM system. Admins can add new attributes
+ * but cannot delete these v1 core fields.
+ *
+ * @return void
+ */
+function formapress_crm_initialize_default_attributes() {
+	// Only initialize if options don't exist yet (first activation).
+	// Company attributes (from v1 zqpm_entreprise).
+	if ( false === get_option( 'crm_company_attributes' ) ) {
+		add_option( 'crm_company_attributes', formapress_get_default_company_attributes() );
+	}
+
+	// Referent attributes (from v1 entreprise.referent serialized array).
+	if ( false === get_option( 'crm_person_referent_attributes' ) ) {
+		add_option( 'crm_person_referent_attributes', formapress_get_default_referent_attributes() );
+	}
+
+	// Instructor attributes (from v1 zqpm_formateur).
+	if ( false === get_option( 'crm_person_instructor_attributes' ) ) {
+		add_option( 'crm_person_instructor_attributes', formapress_get_default_instructor_attributes() );
+	}
+
+	// Trainee attributes (from v1 zqpm_stagiaire).
+	if ( false === get_option( 'crm_person_trainee_attributes' ) ) {
+		add_option( 'crm_person_trainee_attributes', formapress_get_default_trainee_attributes() );
+	}
+
+	// Funder attributes (from v1 zqpm_financeur).
+	if ( false === get_option( 'crm_person_funder_attributes' ) ) {
+		add_option( 'crm_person_funder_attributes', formapress_get_default_funder_attributes() );
+	}
+
+	// Prospect attributes (new in v2 for pipeline).
+	if ( false === get_option( 'crm_person_prospect_attributes' ) ) {
+		add_option( 'crm_person_prospect_attributes', formapress_get_default_prospect_attributes() );
+	}
+
+	// Opportunity attributes (new in v2 for pipeline sales tracking).
+	if ( false === get_option( 'crm_opportunity_attributes' ) ) {
+		add_option( 'crm_opportunity_attributes', formapress_get_default_opportunity_attributes() );
+	}
 }
 register_activation_hook( __FILE__, 'formapress_crm_activate' );
 

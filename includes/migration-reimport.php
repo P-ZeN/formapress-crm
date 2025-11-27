@@ -3,11 +3,25 @@
  * Re-import and update Person data from zform_registrations.
  * This script updates existing persons with missing fields and creates new ones.
  *
+ * @deprecated 2.0.0 This file contains legacy band-aid migration fixes.
+ *             Use WP-CLI with --force flag instead: `wp formapress migrate trainees --force`
+ *             See class-formapress-migration-manager.php for the refactored migration system.
+ *
  * @package formapress-crm
  */
 
 if ( ! defined( 'WPINC' ) ) {
 	die;
+}
+
+// Deprecation notice
+if ( is_admin() && current_user_can( 'manage_options' ) ) {
+	add_action(
+		'admin_notices',
+		function () {
+			echo '<div class="notice notice-warning"><p><strong>FormaPress CRM:</strong> migration-reimport.php is deprecated. Use: <code>wp formapress migrate trainees --force</code></p></div>';
+		}
+	);
 }
 
 /**

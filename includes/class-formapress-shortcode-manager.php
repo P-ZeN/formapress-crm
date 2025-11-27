@@ -29,12 +29,12 @@ class FormaPress_Shortcode_Manager {
 	 * This runs on init hook and creates shortcodes like:
 	 * - [crm_trainee_niveau_etudes]
 	 * - [crm_instructor_biographie]
-	 * - [crm_referent_fonction]
+	 * - [crm_company_contact_fonction]
 	 * - [crm_company_secteur_activite]
 	 */
 	public static function register_attribute_shortcodes() {
-		// Register person type attribute shortcodes.
-		$person_types = array( 'trainee', 'instructor', 'referent', 'prospect', 'funder' );
+		// Register person type attribute shortcodes (using person_type taxonomy slugs).
+		$person_types = array( 'trainee', 'instructor', 'company_contact', 'prospect', 'funder_contact' );
 
 		foreach ( $person_types as $type ) {
 			self::register_person_type_shortcodes( $type );
@@ -125,18 +125,21 @@ class FormaPress_Shortcode_Manager {
 	 * Get schema for person type
 	 *
 	 * Maps person types to their schema option names.
-	 * Supports both v1 options (trainees, instructors) and v2 options (new types).
+	 * Uses v2 attribute system schemas from wp_options.
+	 * Note: taxonomy slug may differ from schema option name (e.g., company_contact vs referent).
 	 *
-	 * @param string $type Person type.
+	 * @param string $type Person type (taxonomy slug).
 	 * @return array Schema array or empty array if not found.
 	 */
 	private static function get_schema_for_person_type( $type ) {
+		// Map person_type taxonomy slug to schema option name.
+		// Note: 'company_contact' slug uses 'referent' schema option (legacy naming).
 		$option_map = array(
-			'trainee'    => 'zform_registrations',              // v1 trainee registration form schema.
-			'instructor' => 'zform_Instructors_attributes',     // v1 instructor attributes schema.
-			'referent'   => 'crm_person_referent_attributes',   // v2 company contact schema.
-			'prospect'   => 'crm_person_prospect_attributes',   // v2 sales prospect schema.
-			'funder'     => 'crm_person_funder_attributes',     // v2 funder/OPCO schema.
+			'trainee'         => 'crm_person_trainee_attributes',    // v2 trainee schema.
+			'instructor'      => 'crm_person_instructor_attributes', // v2 instructor schema.
+			'company_contact' => 'crm_person_referent_attributes',   // v2 company contact (referent) schema.
+			'prospect'        => 'crm_person_prospect_attributes',   // v2 sales prospect schema.
+			'funder_contact'  => 'crm_person_funder_attributes',     // v2 funder/OPCO schema.
 		);
 
 		$option_name = isset( $option_map[ $type ] ) ? $option_map[ $type ] : null;
@@ -204,8 +207,8 @@ class FormaPress_Shortcode_Manager {
 			return '';
 		}
 
-		// Read from exploded meta key.
-		$meta_key = "crm_person_{$type}_attributs_{$field_slug}";
+		// Read from exploded meta key (v2 uses 'attributes' not 'attributs').
+		$meta_key = "crm_person_{$type}_attributes_{$field_slug}";
 		$value    = get_post_meta( $person_id, $meta_key, true );
 
 		// Format and return.
@@ -240,7 +243,7 @@ class FormaPress_Shortcode_Manager {
 			return '';
 		}
 
-		$meta_key = "crm_company_attributs_{$field_slug}";
+		$meta_key = "crm_company_attributes_{$field_slug}";
 		$value    = get_post_meta( $company_id, $meta_key, true );
 
 		return self::format_attribute_value( $value, $field_config, $atts );
@@ -274,7 +277,7 @@ class FormaPress_Shortcode_Manager {
 			return '';
 		}
 
-		$meta_key = "crm_opportunity_attributs_{$field_slug}";
+		$meta_key = "crm_opportunity_attributes_{$field_slug}";
 		$value    = get_post_meta( $opportunity_id, $meta_key, true );
 
 		return self::format_attribute_value( $value, $field_config, $atts );

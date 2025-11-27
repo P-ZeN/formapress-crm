@@ -2,12 +2,26 @@
 /**
  * Formapress CRM Synchronization Functions
  *
+ * @deprecated 2.0.0 This file contains legacy AJAX-based synchronization.
+ *             Use WP-CLI commands instead: `wp formapress migrate companies|instructors|trainees`
+ *             See class-formapress-migration-manager.php for the refactored migration system.
+ *
  * @package FormapressCRM
  */
 
 // If this file is called directly, abort.
 if ( ! defined( 'WPINC' ) ) {
 	die;
+}
+
+// Deprecation notice for admin users
+if ( is_admin() && current_user_can( 'manage_options' ) ) {
+	add_action(
+		'admin_notices',
+		function () {
+			echo '<div class="notice notice-warning"><p><strong>FormaPress CRM:</strong> synchronization.php is deprecated. Use WP-CLI: <code>wp formapress migrate</code></p></div>';
+		}
+	);
 }
 
 /**
