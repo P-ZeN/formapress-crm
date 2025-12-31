@@ -1004,26 +1004,50 @@ class FormaPress_Person_Manager {
 			return array();
 		}
 
-		// Get core person data.
+		// Get all meta for this person.
+		$all_meta = get_post_meta( $person_id );
+
+		// Build person data from crm_person_attributes_* (ZQPM schema) with _crm_* fallback.
 		$person_data = array(
 			'person_id'       => $person_id,
-			'registration_id' => get_post_meta( $person_id, '_crm_v1_registration_id', true ),
-			'civilite'        => get_post_meta( $person_id, '_crm_civilite', true ),
-			'nom'             => get_post_meta( $person_id, '_crm_nom', true ),
-			'prenom'          => get_post_meta( $person_id, '_crm_prenom', true ),
-			'email'           => get_post_meta( $person_id, '_crm_email', true ),
-			'telephone'       => get_post_meta( $person_id, '_crm_telephone', true ),
-			'adresse'         => get_post_meta( $person_id, '_crm_adresse', true ),
-			'cp'              => get_post_meta( $person_id, '_crm_cp', true ),
-			'ville'           => get_post_meta( $person_id, '_crm_ville', true ),
-			'company_id'      => get_post_meta( $person_id, '_crm_company_id', true ),
+			'registration_id' => self::get_meta_value( $all_meta, '_crm_v1_registration_id' ),
 		);
 
-		// Get all trainee attributes (exploded meta keys).
-		$all_meta   = get_post_meta( $person_id );
-		$attributes = array();
+		// Map ZQPM field names to their meta keys.
+		// Primary: crm_person_attributes_* (ZQPM dynamic schema).
+		// Fallback: _crm_* (core CRM fields for migrated data).
+		$field_mapping = array(
+			'civilite'   => array( 'crm_person_attributes_civilite', '_crm_civilite' ),
+			'nom'        => array( 'crm_person_attributes_name', '_crm_nom' ),
+			'prenom'     => array( 'crm_person_attributes_firstname', '_crm_prenom' ),
+			'email'      => array( 'crm_person_attributes_mail', '_crm_email' ),
+			'telephone'  => array( 'crm_person_attributes_telephone', 'crm_person_attributes_tel', '_crm_telephone' ),
+			'adresse'    => array( 'crm_person_attributes_adresse', '_crm_adresse' ),
+			'cp'         => array( 'crm_person_attributes_cp', '_crm_code_postal', '_crm_cp' ),
+			'ville'      => array( 'crm_person_attributes_ville', '_crm_ville' ),
+			'company_id' => array( '_crm_company_id' ),
+		);
 
+		foreach ( $field_mapping as $field_name => $meta_keys ) {
+			$value = '';
+			foreach ( $meta_keys as $meta_key ) {
+				$value = self::get_meta_value( $all_meta, $meta_key );
+				if ( ! empty( $value ) ) {
+					break;
+				}
+			}
+			$person_data[ $field_name ] = $value;
+		}
+
+		// Get all additional attributes (for dynamic form fields).
+		$attributes = array();
 		foreach ( $all_meta as $meta_key => $meta_value ) {
+			// Include all crm_person_attributes_* as additional attributes.
+			if ( 0 === strpos( $meta_key, 'crm_person_attributes_' ) ) {
+				$field_slug                = str_replace( 'crm_person_attributes_', '', $meta_key );
+				$attributes[ $field_slug ] = isset( $meta_value[0] ) ? $meta_value[0] : '';
+			}
+			// Also include legacy trainee attributes.
 			if ( 0 === strpos( $meta_key, 'crm_person_trainee_attributs_' ) ) {
 				$field_slug                = str_replace( 'crm_person_trainee_attributs_', '', $meta_key );
 				$attributes[ $field_slug ] = isset( $meta_value[0] ) ? $meta_value[0] : '';
@@ -1033,6 +1057,17 @@ class FormaPress_Person_Manager {
 		$person_data['attributes'] = $attributes;
 
 		return $person_data;
+	}
+
+	/**
+	 * Helper to get meta value from all_meta array.
+	 *
+	 * @param array  $all_meta All meta for a post.
+	 * @param string $key      Meta key to retrieve.
+	 * @return string Meta value or empty string.
+	 */
+	private static function get_meta_value( $all_meta, $key ) {
+		return isset( $all_meta[ $key ][0] ) ? $all_meta[ $key ][0] : '';
 	}
 
 	/**

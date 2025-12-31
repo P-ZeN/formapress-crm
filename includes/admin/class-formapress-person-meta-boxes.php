@@ -252,23 +252,8 @@ class FormaPress_Person_Meta_Boxes {
 
 		// Render ALL fields for each person type.
 		foreach ( $person_types as $type ) {
-			// Map person type to attribute option name.
-			$option_map = array(
-				'instructor'      => 'crm_person_instructor_attributes',
-				'company_contact' => 'crm_person_referent_attributes',
-				'trainee'         => 'crm_person_trainee_attributes',
-				'funder'          => 'crm_person_funder_attributes',
-				'prospect'        => 'crm_person_prospect_attributes',
-			);
-
-			// Get schema from the CRM attribute system.
-			$option_name = isset( $option_map[ $type ] ) ? $option_map[ $type ] : null;
-			if ( ! $option_name ) {
-				// Fallback to old zform system for unmapped types.
-				$schema = ZForm_Attributes_Core::get_attributes_schema( $type );
-			} else {
-				$schema = get_option( $option_name, array() );
-			}
+			// Use ZForm_Attributes_Core which correctly maps to v1 options for instructors/trainees.
+			$schema = ZForm_Attributes_Core::get_attributes_schema( $type );
 
 			if ( empty( $schema ) ) {
 				continue;
@@ -296,18 +281,16 @@ class FormaPress_Person_Meta_Boxes {
 					continue;
 				}
 
-				// Use CRM v2 attribute meta key pattern: crm_person_{type}_attributes_{slug}.
-				// Check both new (attributes) and old (attributs) patterns for backward compatibility.
-				$meta_key_new = 'crm_person_' . $type . '_attributes_' . $field_slug;
-				$meta_key_old = 'crm_person_' . $type . '_attributs_' . $field_slug;
+				// Use v2 attribute meta key pattern: crm_person_{type}_attributes_{slug}.
+				$meta_key    = 'crm_person_' . $type . '_attributes_' . $field_slug;
+				$field_value = get_post_meta( $post->ID, $meta_key, true );
 
-				$field_value = get_post_meta( $post->ID, $meta_key_new, true );
-				if ( empty( $field_value ) && '0' !== $field_value ) {
-					// Fallback to old pattern if new doesn't exist.
-					$field_value = get_post_meta( $post->ID, $meta_key_old, true );
+				// Ensure arrays are converted to empty string for media/download fields.
+				if ( is_array( $field_value ) && empty( $field_value ) ) {
+					$field_value = '';
 				}
 
-				// Field naming pattern for form submission (always use new pattern).
+				// Field naming pattern for form submission.
 				$field_name = 'crm_person_' . $type . '_attributes[' . $field_slug . ']';
 				$field_id   = 'crm_person_' . $type . '_attributes_' . $field_slug;
 

@@ -6,6 +6,7 @@
 2. **Assume dev watchers are running** - Vite watch mode is active during development
 3. **No markdown logorrhea** - Essential info goes in code comments, not proliferating .md files
 4. **Dynamic theming** - Use CSS variables from parent zformations plugin, never hardcode colors
+5. **Migration-first architecture** - Always assume v1→v2 migration has completed successfully. Never write fallback code for unmigrated data. If unmigrated data is discovered, fix the migration tools, not the consuming code.
 
 ## Project Context
 
@@ -40,10 +41,11 @@ $color_orange: #ff5e00;
 
 ### PHP
 
--   Follow WordPress coding standards
+-   Follow WordPress coding standards (WPCS)
 -   Use proper escaping: `esc_html()`, `esc_attr()`, `wp_kses()`
 -   Nonce verification for forms
 -   Tabs for indentation (WordPress convention)
+-   **Fix lint errors:** When making changes to a file, proactively fix any lint errors (both new and legacy) according to WordPress coding standards. Don't leave code quality worse than you found it.
 
 ### File Organization
 
@@ -73,6 +75,8 @@ _dev/
 -   ❌ Don't hardcode UI colors - they're configurable per customer
 -   ❌ Don't use outdated Sass syntax - use modern `@use/@forward`
 -   ❌ Don't break existing shortcodes - customers have 500-5000 per site
+-   ❌ Don't ignore lint errors - fix them as you go, even legacy ones
+-   ❌ Don't write v1/v2 coexistence code - migration tools exist for a reason
 
 ## Development Workflow
 

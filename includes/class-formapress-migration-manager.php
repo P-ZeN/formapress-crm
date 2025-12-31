@@ -497,7 +497,8 @@ class FormaPress_Migration_Manager {
 					// Migrate sessions_ids relationship.
 					$sessions_ids = get_post_meta( $instructor->ID, 'sessions_ids', true );
 					if ( ! empty( $sessions_ids ) && is_array( $sessions_ids ) ) {
-						update_post_meta( $person_id, '_crm_v1_sessions_ids', $sessions_ids );
+						update_post_meta( $person_id, '_crm_session_ids', $sessions_ids );
+						update_post_meta( $person_id, '_crm_v1_sessions_ids', $sessions_ids ); // Keep for reference.
 					}
 
 					// Week 4: Save ALL custom attributes using ATTRIBUTE SYSTEM (not core attributes).

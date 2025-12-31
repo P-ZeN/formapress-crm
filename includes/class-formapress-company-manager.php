@@ -771,6 +771,7 @@ class FormaPress_Company_Manager {
 					// Create new person.
 					$person_id = FormaPress_Person_Manager::create_person(
 						array(
+							'civilite'    => $referent_data['civilite'] ?? '',
 							'prenom'      => $referent_data['prenom'] ?? '',
 							'nom'         => $referent_data['nom'] ?? '',
 							'email'       => $email,

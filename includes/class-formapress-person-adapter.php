@@ -18,6 +18,93 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
+ * Company V1 Compatible Wrapper
+ *
+ * Wraps v2 company data and adds methods for v1 compatibility.
+ * This allows v1 code to call methods like get_infos_session() on v2 company objects.
+ */
+class FormaPress_Company_V1_Wrapper {
+	/**
+	 * All company properties are stored dynamically.
+	 */
+	private $data;
+
+	/**
+	 * Constructor
+	 *
+	 * @param object $company_data Company data object from adapter.
+	 */
+	public function __construct( $company_data ) {
+		$this->data = $company_data;
+	}
+
+	/**
+	 * Magic getter for all properties.
+	 *
+	 * @param string $name Property name.
+	 * @return mixed Property value.
+	 */
+	public function __get( $name ) {
+		if ( isset( $this->data->$name ) ) {
+			$value = $this->data->$name;
+			// Ensure arrays are returned as arrays (not wrapped).
+			if ( is_array( $value ) ) {
+				return $value;
+			}
+			return $value;
+		}
+		return null;
+	}
+
+	/**
+	 * Magic setter for all properties.
+	 *
+	 * @param string $name  Property name.
+	 * @param mixed  $value Property value.
+	 */
+	public function __set( $name, $value ) {
+		$this->data->$name = $value;
+	}
+
+	/**
+	 * Magic isset check.
+	 *
+	 * @param string $name Property name.
+	 * @return bool Whether property exists.
+	 */
+	public function __isset( $name ) {
+		return isset( $this->data->$name );
+	}
+
+	/**
+	 * Get all properties as an array for v1 compatibility.
+	 *
+	 * @return array All company properties.
+	 */
+	public function get_properties() {
+		return get_object_vars( $this->data );
+	}
+
+	/**
+	 * Get session info for this company in a ZQPM.
+	 *
+	 * Mimics zqpmEntreprise::get_infos_session() method.
+	 *
+	 * @param int $zqp_id The ZQPM post ID.
+	 * @return array Session info array.
+	 */
+	public function get_infos_session( $zqp_id ) {
+		if ( function_exists( 'get_zqpmmeta' ) && ! empty( $this->data->ID ) ) {
+			$zqpmmeta = get_zqpmmeta( $zqp_id, $this->data->ID, 'entreprise_infos_session' );
+			if ( is_array( $zqpmmeta ) && ! empty( $zqpmmeta ) && ! empty( $zqpmmeta[0]->meta_value ) ) {
+				return $zqpmmeta[0]->meta_value;
+			}
+		}
+		return array();
+	}
+}
+
+/**
  * Person Adapter Class
  *
  * Provides static methods to get persons in v1-compatible format from v2 sources.
@@ -115,18 +202,34 @@ class FormaPress_Person_Adapter {
 	 * Get company/entreprise data (v1-compatible)
 	 *
 	 * Returns an object compatible with zqpmEntreprise structure.
-	 * Works with both v1 entreprise post IDs and v2 person IDs.
+	 * Works with v1 entreprise post IDs, v2 crm_company IDs, or v2 person IDs.
 	 *
-	 * @param int    $id      Entreprise post ID (v1) or Person ID (v2).
-	 * @param string $id_type 'entreprise' (default) or 'person'.
+	 * @param int    $id      Entreprise post ID (v1), crm_company ID (v2), or Person ID (v2).
+	 * @param string $id_type 'entreprise' (v1), 'company' (v2 crm_company), or 'person' (v2 crm_person).
 	 * @return object|false V1-compatible company object or false if not found.
 	 */
 	public static function get_company( $id, $id_type = 'entreprise' ) {
 		global $wpdb;
 
-		// Convert v1 entreprise ID to v2 person ID if needed.
+		// Handle v2 crm_company CPT directly.
+		if ( 'company' === $id_type ) {
+			$post = get_post( $id );
+			if ( $post && 'crm_company' === $post->post_type ) {
+				return self::format_crm_company_v1_compatible( $id );
+			}
+			return false;
+		}
+
+		// Convert v1 entreprise ID to v2 ID if needed.
 		if ( 'entreprise' === $id_type ) {
-			$person_id = $wpdb->get_var(
+			// First check if it's already a v2 crm_company.
+			$post = get_post( $id );
+			if ( $post && 'crm_company' === $post->post_type ) {
+				return self::format_crm_company_v1_compatible( $id );
+			}
+
+			// Try to find migrated v2 crm_company.
+			$company_id = $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT post_id FROM {$wpdb->postmeta}
 					 WHERE meta_key = '_crm_v1_entreprise_id'
@@ -135,26 +238,25 @@ class FormaPress_Person_Adapter {
 					$id
 				)
 			);
-			$v1_id     = $id;
-		} else {
-			$person_id = $id;
-			$v1_id     = get_post_meta( $id, '_crm_v1_entreprise_id', true );
-		}
 
-		if ( $person_id ) {
-			// Get v2 person data.
-			$person_data = self::get_person_data( $person_id, 'company' );
+			if ( $company_id ) {
+				return self::format_crm_company_v1_compatible( $company_id );
+			}
 
-			if ( ! empty( $person_data ) ) {
-				return self::format_company_v1_compatible( $person_data, $v1_id );
+			// Fallback to v1 if not migrated.
+			if ( class_exists( 'zqpmEntreprise' ) ) {
+				if ( $post && 'zqpm_entreprise' === $post->post_type ) {
+					return new zqpmEntreprise( $id );
+				}
 			}
 		}
 
-		// Fallback to v1 if not migrated.
-		if ( 'entreprise' === $id_type && class_exists( 'zqpmEntreprise' ) ) {
-			$post = get_post( $id );
-			if ( $post && 'zform_entreprise' === $post->post_type ) {
-				return new zqpmEntreprise( $id );
+		// Handle v2 person (legacy - companies should be crm_company now).
+		if ( 'person' === $id_type ) {
+			$person_data = self::get_person_data( $id, 'company' );
+			if ( ! empty( $person_data ) ) {
+				$v1_id = get_post_meta( $id, '_crm_v1_entreprise_id', true );
+				return self::format_company_v1_compatible( $person_data, $v1_id );
 			}
 		}
 
@@ -166,8 +268,8 @@ class FormaPress_Person_Adapter {
 	 *
 	 * Returns an object compatible with zqpmReferent structure.
 	 *
-	 * @param int    $person_id  Person ID.
-	 * @param int    $company_id Company person ID (for context).
+	 * @param int $person_id  Person ID.
+	 * @param int $company_id Company person ID (for context).
 	 * @return object|false V1-compatible referent object or false if not found.
 	 */
 	public static function get_referent( $person_id, $company_id = null ) {
@@ -187,14 +289,33 @@ class FormaPress_Person_Adapter {
 	 * @return array Array of v1-compatible instructor objects.
 	 */
 	public static function get_session_instructors( $session_id ) {
-		// Get instructors linked to session (v1 meta).
-		$instructor_ids = get_post_meta( $session_id, 'instructors', true );
-		$instructor_ids = is_array( $instructor_ids ) ? $instructor_ids : array();
+		global $wpdb;
 
+		// Query v2 crm_person records with person_type=instructor linked to this session.
+		// Instructors are linked via _crm_session_ids meta (serialized array of session IDs).
+		// The array can contain integers or strings, so we search for both patterns.
+		$query = $wpdb->prepare(
+			"SELECT DISTINCT p.ID
+			FROM {$wpdb->posts} p
+			INNER JOIN {$wpdb->term_relationships} tr ON p.ID = tr.object_id
+			INNER JOIN {$wpdb->term_taxonomy} tt ON tr.term_taxonomy_id = tt.term_taxonomy_id
+			INNER JOIN {$wpdb->terms} t ON tt.term_id = t.term_id
+			INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+			WHERE p.post_type = 'crm_person'
+			AND p.post_status = 'publish'
+			AND tt.taxonomy = 'person_type'
+			AND t.slug = 'instructor'
+			AND pm.meta_key = '_crm_session_ids'
+			AND (pm.meta_value LIKE %s OR pm.meta_value LIKE %s)",
+			'%i:' . intval( $session_id ) . ';%',  // Match integer in array: i:15815;
+			'%s:' . strlen( $session_id ) . ':"' . $wpdb->esc_like( $session_id ) . '";%'  // Match string in array: s:5:"15815";
+		);
+
+		$person_ids  = $wpdb->get_col( $query );
 		$instructors = array();
 
-		foreach ( $instructor_ids as $instructor_id ) {
-			$instructor = self::get_instructor( $instructor_id, 'instructor' );
+		foreach ( $person_ids as $person_id ) {
+			$instructor = self::get_instructor( $person_id, 'person' );
 			if ( $instructor ) {
 				$instructors[] = $instructor;
 			}
@@ -286,13 +407,13 @@ class FormaPress_Person_Adapter {
 		);
 
 		foreach ( $core_fields as $field ) {
-			$meta_key        = '_crm_' . $field;
-			$data[ $field ]  = isset( $all_meta[ $meta_key ][0] ) ? $all_meta[ $meta_key ][0] : '';
+			$meta_key       = '_crm_' . $field;
+			$data[ $field ] = isset( $all_meta[ $meta_key ][0] ) ? $all_meta[ $meta_key ][0] : '';
 		}
 
 		// Extract attributes based on person type.
 		$attributes = array();
-		$prefix     = 'crm_person_' . $person_type . '_attributs_';
+		$prefix     = 'crm_person_' . $person_type . '_attributes_';
 
 		foreach ( $all_meta as $meta_key => $meta_value ) {
 			if ( 0 === strpos( $meta_key, $prefix ) ) {
@@ -318,18 +439,19 @@ class FormaPress_Person_Adapter {
 		$trainee = new stdClass();
 
 		// Core IDs.
-		$trainee->id                = ! empty( $person_data['registration_id'] ) ? intval( $person_data['registration_id'] ) : 0;
-		$trainee->person_id         = $person_data['person_id'];
-		$trainee->v1_registration_id = $trainee->id;
+		$trainee->id                 = $person_data['person_id']; // Use person_id for v2 trainees.
+		$trainee->person_id          = $person_data['person_id'];
+		$trainee->v1_registration_id = ! empty( $person_data['registration_id'] ) ? intval( $person_data['registration_id'] ) : 0;
+		$trainee->registration_id    = $trainee->id;
 
-		// Personal info.
+		// Personal info - expose with both v1 and v2 naming conventions.
 		$trainee->civilite  = $person_data['civilite'];
 		$trainee->nom       = $person_data['nom'];
-		$trainee->name      = $person_data['nom']; // Alias.
+		$trainee->name      = $person_data['nom']; // Alias for ZQPM.
 		$trainee->prenom    = $person_data['prenom'];
-		$trainee->firstname = $person_data['prenom']; // Alias.
+		$trainee->firstname = $person_data['prenom']; // Alias for ZQPM.
 		$trainee->email     = $person_data['email'];
-		$trainee->mail      = $person_data['email']; // Alias.
+		$trainee->mail      = $person_data['email']; // Alias for ZQPM.
 		$trainee->telephone = $person_data['telephone'];
 
 		// Address.
@@ -337,17 +459,26 @@ class FormaPress_Person_Adapter {
 		$trainee->cp      = $person_data['cp'];
 		$trainee->ville   = $person_data['ville'];
 
-		// Company.
+		// Company - expose as both company_id and societe for ZQPM form.
 		$trainee->company_id = $person_data['company_id'];
+		$trainee->societe    = $person_data['company_id']; // ZQPM uses 'societe' in forms.
 
-		// Attributes (from exploded meta).
+		// Expose ALL attributes as direct properties for dynamic form access.
+		// This allows $stagiaire->{'validation-rgpd'}, $stagiaire->visio, etc.
+		if ( ! empty( $person_data['attributes'] ) ) {
+			foreach ( $person_data['attributes'] as $attr_key => $attr_value ) {
+				$trainee->{$attr_key} = $attr_value;
+			}
+		}
+
+		// Also keep attributes array for backward compatibility.
 		$trainee->attributs = $person_data['attributes'];
 
 		// Legacy v1 fields (will be empty for v2-only data).
-		$trainee->session_id    = 0;
-		$trainee->formation_id  = 0;
-		$trainee->datas         = null;
-		$trainee->status        = 1;
+		$trainee->session_id   = 0;
+		$trainee->formation_id = 0;
+		$trainee->datas        = null;
+		$trainee->status       = 1;
 
 		// Flag for adapter usage.
 		$trainee->_is_v2_adapted = true;
@@ -368,10 +499,10 @@ class FormaPress_Person_Adapter {
 		$instructor = new stdClass();
 
 		// Core IDs.
-		$instructor->id                = $v1_id ? intval( $v1_id ) : 0;
-		$instructor->person_id         = $person_data['person_id'];
-		$instructor->ID                = $v1_id ? intval( $v1_id ) : 0; // Uppercase for post ID compat.
-		$instructor->v1_instructor_id  = $instructor->id;
+		$instructor->id               = $person_data['person_id']; // Always use v2 person_id.
+		$instructor->person_id        = $person_data['person_id'];
+		$instructor->ID               = $person_data['person_id']; // Uppercase for post ID compat.
+		$instructor->v1_instructor_id = $v1_id ? intval( $v1_id ) : 0; // Keep v1 reference if available.
 
 		// Personal info.
 		$instructor->civilite  = $person_data['civilite'];
@@ -413,17 +544,17 @@ class FormaPress_Person_Adapter {
 		$company = new stdClass();
 
 		// Core IDs.
-		$company->id                = $v1_id ? intval( $v1_id ) : 0;
-		$company->person_id         = $person_data['person_id'];
-		$company->ID                = $v1_id ? intval( $v1_id ) : 0;
-		$company->v1_entreprise_id  = $company->id;
+		$company->id               = $v1_id ? intval( $v1_id ) : 0;
+		$company->person_id        = $person_data['person_id'];
+		$company->ID               = $v1_id ? intval( $v1_id ) : 0;
+		$company->v1_entreprise_id = $company->id;
 
 		// Company info (nom is company name for companies).
-		$company->nom           = $person_data['nom'];
-		$company->name          = $person_data['nom'];
+		$company->nom            = $person_data['nom'];
+		$company->name           = $person_data['nom'];
 		$company->raison_sociale = $person_data['nom'];
-		$company->email         = $person_data['email'];
-		$company->telephone     = $person_data['telephone'];
+		$company->email          = $person_data['email'];
+		$company->telephone      = $person_data['telephone'];
 
 		// Address.
 		$company->adresse = $person_data['adresse'];
@@ -462,7 +593,7 @@ class FormaPress_Person_Adapter {
 			if ( ! empty( $ref_data ) ) {
 				$ref_obj = self::format_referent_v1_compatible( $ref_data, $person_data['person_id'] );
 				// Use email as key (v1 compat).
-				$key                     = ! empty( $ref_obj->email ) ? $ref_obj->email : $ref_id;
+				$key                       = ! empty( $ref_obj->email ) ? $ref_obj->email : $ref_id;
 				$company->referent[ $key ] = $ref_obj;
 			}
 		}
@@ -474,20 +605,129 @@ class FormaPress_Person_Adapter {
 	}
 
 	/**
-	 * Format referent data as v1-compatible object
+	 * Format crm_company CPT data as v1-compatible object
 	 *
-	 * Creates an object that mimics zqpmReferent structure.
+	 * Creates an object that mimics zqpmEntreprise structure for crm_company CPT.
 	 *
-	 * @param array $person_data Person data from v2.
-	 * @param int   $company_id  Company person ID.
-	 * @return object V1-compatible referent object.
+	 * @param int $company_id The crm_company post ID.
+	 * @return object V1-compatible company object.
 	 */
+	private static function format_crm_company_v1_compatible( $company_id ) {
+		$post = get_post( $company_id );
+		if ( ! $post || 'crm_company' !== $post->post_type ) {
+			return false;
+		}
+
+		$company = new stdClass();
+
+		// Core IDs.
+		$company->id         = intval( $company_id );
+		$company->ID         = intval( $company_id );
+		$company->company_id = intval( $company_id );
+
+		// Company info from post and meta.
+		$company->raison_sociale = get_the_title( $company_id );
+		$company->nom            = $company->raison_sociale;
+		$company->name           = $company->raison_sociale;
+
+		// Try new attribute keys first, fallback to old _crm_ keys.
+		$company->siret     = get_post_meta( $company_id, 'crm_company_attributes_siret', true ) ?: get_post_meta( $company_id, '_crm_siret', true );
+		$company->email     = get_post_meta( $company_id, 'crm_company_attributes_email', true ) ?: get_post_meta( $company_id, '_crm_email', true );
+		$company->telephone = get_post_meta( $company_id, 'crm_company_attributes_telephone', true ) ?: get_post_meta( $company_id, '_crm_telephone', true );
+		$company->site      = get_post_meta( $company_id, 'crm_company_attributes_site', true ) ?: get_post_meta( $company_id, '_crm_site_web', true );
+
+		// Address.
+		$company->adresse   = get_post_meta( $company_id, 'crm_company_attributes_adresse', true ) ?: get_post_meta( $company_id, '_crm_adresse', true );
+		$company->cp        = get_post_meta( $company_id, 'crm_company_attributes_cp', true ) ?: get_post_meta( $company_id, '_crm_code_postal', true );
+		$company->ville     = get_post_meta( $company_id, 'crm_company_attributes_ville', true ) ?: get_post_meta( $company_id, '_crm_ville', true );     // Load all attributes for v1 compatibility.
+		$company->attributs = array();
+		$all_meta           = get_post_meta( $company_id );
+		foreach ( $all_meta as $key => $values ) {
+			if ( strpos( $key, 'crm_company_attributes_' ) === 0 ) {
+				$attr_key                        = str_replace( 'crm_company_attributes_', '', $key );
+				$company->attributs[ $attr_key ] = isset( $values[0] ) ? $values[0] : '';
+			}
+		}
+
+		// Referents - query v2 crm_person records with person_type=company_contact.
+		$company->referent = array();
+
+		// Query for referents linked to this company.
+		$referent_ids = get_posts(
+			array(
+				'post_type'      => 'crm_person',
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'meta_query'     => array(
+					array(
+						'key'   => '_crm_company_id',
+						'value' => $company_id,
+					),
+				),
+				'tax_query'      => array(
+					array(
+						'taxonomy' => 'person_type',
+						'field'    => 'slug',
+						'terms'    => 'company_contact',
+					),
+				),
+			)
+		);
+
+		foreach ( $referent_ids as $ref_id ) {
+			$referent = new stdClass();
+
+			// Core fields.
+			$referent->id            = $ref_id;
+			$referent->person_id     = $ref_id;
+			$referent->entreprise_id = $company_id;
+			$referent->civilite      = get_post_meta( $ref_id, '_crm_civilite', true );
+			$referent->prenom        = get_post_meta( $ref_id, '_crm_prenom', true );
+			$referent->nom           = get_post_meta( $ref_id, '_crm_nom', true );
+			$referent->mail          = get_post_meta( $ref_id, '_crm_email', true );
+			$referent->tel           = get_post_meta( $ref_id, '_crm_telephone', true );
+			$referent->poste         = get_post_meta( $ref_id, '_crm_fonction', true );
+
+			// Also check attributes.
+			if ( empty( $referent->tel ) ) {
+				$referent->tel = get_post_meta( $ref_id, 'crm_person_company_contact_attributes_tel', true );
+			}
+			if ( empty( $referent->poste ) ) {
+				$referent->poste = get_post_meta( $ref_id, 'crm_person_company_contact_attributes_poste', true );
+			}
+
+			// Check for tokens_infos (needed for step-send).
+			$referent->tokens_infos = array();
+
+			// Add to array with numeric index (v1 form compatibility).
+			$company->referent[] = $referent;
+		}       // Check if this was migrated from v1.
+		$v1_id = get_post_meta( $company_id, '_crm_v1_entreprise_id', true );
+		if ( $v1_id ) {
+			$company->v1_entreprise_id = intval( $v1_id );
+		}
+
+		// Flag for adapter usage.
+		$company->_is_v2_adapted      = true;
+		$company->_is_crm_company_cpt = true;
+
+		// Wrap in v1-compatible wrapper that adds methods.
+		return new FormaPress_Company_V1_Wrapper( $company );
+	}   /**
+		 * Format referent data as v1-compatible object
+		 *
+		 * Creates an object that mimics zqpmReferent structure.
+		 *
+		 * @param array $person_data Person data from v2.
+		 * @param int   $company_id  Company person ID.
+		 * @return object V1-compatible referent object.
+		 */
 	private static function format_referent_v1_compatible( $person_data, $company_id = null ) {
 		$referent = new stdClass();
 
 		// Core IDs.
-		$referent->id           = $person_data['person_id'];
-		$referent->person_id    = $person_data['person_id'];
+		$referent->id            = $person_data['person_id'];
+		$referent->person_id     = $person_data['person_id'];
 		$referent->entreprise_id = $company_id ? intval( $company_id ) : intval( $person_data['company_id'] );
 
 		// Personal info.
