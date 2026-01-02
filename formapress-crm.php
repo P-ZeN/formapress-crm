@@ -75,6 +75,9 @@ require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-opportunity.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-invoice.php'; // Financial tracking for BPF.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-activity.php';
 
+// WP-CLI commands
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cli-fix-trainee-field-names.php';
+
 /**
  * Initialize v2 Managers
  * Note: Person and Company managers' init() disabled to prevent duplicate CPT registration.

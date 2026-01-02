@@ -80,6 +80,19 @@ class FormaPress_Person_Meta_Boxes {
 			'side',
 			'default'
 		);
+
+		// ZQPM Sessions (for trainees only)
+		global $post;
+		if ( $post && has_term( 'trainee', 'person_type', $post->ID ) ) {
+			add_meta_box(
+				'formapress_person_zqpm_sessions',
+				__( 'Suivis de session', 'formapress-crm' ),
+				array( __CLASS__, 'render_zqpm_sessions_meta_box' ),
+				'crm_person',
+				'side',
+				'default'
+			);
+		}
 	}
 
 	/**
@@ -278,6 +291,11 @@ class FormaPress_Person_Meta_Boxes {
 			foreach ( $schema as $field_slug => $field_config ) {
 				// Skip helptext fields in edit context.
 				if ( isset( $field_config['type'] ) && 'helptext' === $field_config['type'] ) {
+					continue;
+				}
+
+				// Skip 'societe' field for trainees - it's handled by the Company Association meta box.
+				if ( 'trainee' === $type && 'societe' === $field_slug ) {
 					continue;
 				}
 
@@ -735,6 +753,90 @@ class FormaPress_Person_Meta_Boxes {
 			echo esc_html( implode( ', ', $v1_registration_ids ) );
 			echo ' <small>(' . esc_html__( 'from custom table', 'formapress-crm' ) . ')</small>';
 			echo '</p>';
+		}
+
+		echo '</div>';
+	}
+
+	/**
+	 * Render ZQPM Sessions meta box (trainees only)
+	 *
+	 * Shows all ZQPM tracking posts linked to sessions this trainee is enrolled in.
+	 *
+	 * Architecture note:
+	 * - Session (zform_session CPT): Training course with dates/times/location
+	 * - ZQPM (zqpm CPT): Separate tracking post that references a session via zqpm_session_id meta
+	 * - Trainees link to sessions via _crm_session_id meta (can have multiple)
+	 *
+	 * @param WP_Post $post Current post object
+	 */
+	public static function render_zqpm_sessions_meta_box( $post ) {
+		// Get all sessions this trainee is enrolled in.
+		$session_ids = get_post_meta( $post->ID, '_crm_session_id', false );
+
+		if ( empty( $session_ids ) ) {
+			echo '<p>' . esc_html__( 'Ce stagiaire n\'est inscrit à aucune session pour le moment.', 'formapress-crm' ) . '</p>';
+			return;
+		}
+
+		echo '<div style="font-size: 13px;">';
+
+		foreach ( $session_ids as $session_id ) {
+			$session = get_post( $session_id );
+			if ( ! $session ) {
+				continue;
+			}
+
+			// Find ZQPM posts that track this session.
+			$zqpm_posts = get_posts(
+				array(
+					'post_type'      => 'zqpm',
+					'posts_per_page' => -1,
+					'post_status'    => array( 'publish', 'draft' ),
+					'meta_key'       => 'zqpm_session_id',
+					'meta_value'     => $session_id,
+				)
+			);
+
+			echo '<div style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-left: 3px solid #2271b1;">';
+			echo '<p style="margin: 0 0 8px 0;"><strong>' . esc_html__( 'Session :', 'formapress-crm' ) . '</strong> ';
+			echo '<a href="' . esc_url( admin_url( 'post.php?post=' . $session_id . '&action=edit' ) ) . '" target="_blank">';
+			echo esc_html( $session->post_title );
+			echo '</a></p>';
+
+			if ( ! empty( $zqpm_posts ) ) {
+				echo '<p style="margin: 0 0 4px 0;"><strong>' . esc_html__( 'Suivi :', 'formapress-crm' ) . '</strong></p>';
+				echo '<ul style="margin: 0; padding-left: 20px;">';
+
+				foreach ( $zqpm_posts as $zqpm_post ) {
+					// Get ZQPM constructed title.
+					$zqpm_title = $zqpm_post->post_title;
+					if ( function_exists( 'zqpm_construct_new_title' ) ) {
+						$zqpm_title = zqpm_construct_new_title( '', $zqpm_post->ID );
+					}
+
+					// Get ZQPM step (0-based index, use zqpm_steps_titles for display).
+					$zqpm_step = get_post_meta( $zqpm_post->ID, 'zqpm_step', true );
+					if ( '' !== $zqpm_step && function_exists( 'zqpm_steps_titles' ) ) {
+						$step_label = ( $zqpm_step + 1 ) . '. ' . zqpm_steps_titles( $zqpm_step );
+					} else {
+						$step_label = __( 'Non démarré', 'formapress-crm' );
+					}
+
+					echo '<li style="margin-bottom: 4px;">';
+					echo '<a href="' . esc_url( admin_url( 'post.php?post=' . $zqpm_post->ID . '&action=edit' ) ) . '" target="_blank">';
+					echo esc_html( $zqpm_title );
+					echo '</a>';
+					echo ' <span style="color: #666;">(' . esc_html( $step_label ) . ')</span>';
+					echo '</li>';
+				}
+
+				echo '</ul>';
+			} else {
+				echo '<p style="margin: 0; color: #999; font-style: italic;">' . esc_html__( 'Aucun suivi pour cette session', 'formapress-crm' ) . '</p>';
+			}
+
+			echo '</div>';
 		}
 
 		echo '</div>';
