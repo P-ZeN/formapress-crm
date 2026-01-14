@@ -46,8 +46,9 @@ function formapress_crm_register_opportunity_cpt() {
 		'public'             => true,
 		'publicly_queryable' => true,
 		'show_ui'            => true,
-		'show_in_menu'       => 'formapress-crm-pipeline', // Show under the main CRM menu.
+		'show_in_menu'       => 'formapress-crm-dashboard', // Show under the main CRM menu.
 		'query_var'          => true,
+		'menu_position'      => 10, // Position after dashboard and pipeline.
 		'rewrite'            => array( 'slug' => 'crm-opportunity' ),
 		'capability_type'    => 'post',
 		'has_archive'        => true,
@@ -107,12 +108,13 @@ function formapress_crm_opportunity_details_meta_box_html( $post ) {
 
 	// Define pipeline stages for Kanban board.
 	$stages = array(
-		'new'         => 'Nouveau prospect',
-		'qualified'   => 'Qualifié',
-		'proposal'    => 'Proposition envoyée',
-		'negotiation' => 'En négociation',
-		'won'         => 'Gagné',
-		'lost'        => 'Perdu',
+		'new'                  => 'Nouveau prospect',
+		'qualified'            => 'Qualifié',
+		'proposal_in_progress' => 'Proposition en préparation',
+		'proposal'             => 'Proposition envoyée',
+		'negotiation'          => 'En négociation',
+		'won'                  => 'Gagné',
+		'lost'                 => 'Perdu',
 	);
 
 	// Default to 'new' if not set.

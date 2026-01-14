@@ -33,6 +33,12 @@ export default defineConfig({
             input: {
                 "formapress-crm-admin": resolve(__dirname, "js/admin/formapress-crm-admin.js"),
                 "formapress-crm-admin-styles": resolve(__dirname, "scss/formapress-crm-admin.scss"),
+                "opportunity-editor": resolve(__dirname, "js/admin/opportunity-editor.js"),
+                "opportunity-editor-styles": resolve(__dirname, "scss/opportunity-editor.scss"),
+                "person-editor": resolve(__dirname, "js/admin/person-editor.js"),
+                "person-editor-styles": resolve(__dirname, "scss/person-editor.scss"),
+                "communication-modal": resolve(__dirname, "js/admin/communication-modal.js"),
+                "communication-modal-styles": resolve(__dirname, "scss/communication-modal.scss"),
             },
             output: {
                 entryFileNames: () => {

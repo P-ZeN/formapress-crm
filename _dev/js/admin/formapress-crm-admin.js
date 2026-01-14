@@ -16,24 +16,32 @@
     // Initialize on DOM ready
     $(document).ready(function () {
         // Initialize Select2 for better dropdowns
-        if ($.fn.select2) {
+        if ($.fn.select2 && $(".crm-select2").length) {
             $(".crm-select2").select2({
                 width: "100%",
                 placeholder: "Select an option...",
             });
         }
 
-        // Quick Add Person Modal
-        initQuickAddModal();
+        // Quick Add Person Modal (only on pages with modal)
+        if ($(".crm-quick-add-modal").length || $(".crm-quick-add-trigger").length) {
+            initQuickAddModal();
+        }
 
-        // Kanban drag and drop
-        initKanbanBoard();
+        // Kanban drag and drop (only on pipeline page)
+        if ($(".crm-kanban-board").length) {
+            initKanbanBoard();
+        }
 
-        // Person card interactions
-        initPersonCards();
+        // Person card interactions (only on pages with person cards)
+        if ($(".crm-person-card").length) {
+            initPersonCards();
+        }
 
-        // Attribute management pages
-        initAttributeManagement();
+        // Attribute management pages (only on settings pages)
+        if ($(".attributes-table").length || $("#add-attribute-row").length) {
+            initAttributeManagement();
+        }
     });
 
     /**

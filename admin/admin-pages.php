@@ -17,40 +17,42 @@ function formapress_crm_admin_menu() {
 
 	$icon = zform_get_plugin_icon();
 
-	// Main CRM menu - points to Pipeline (Kanban view).
+	// Main CRM menu - points to Dashboard.
 	add_menu_page(
 		'CRM',
 		'CRM',
 		'edit_posts',
-		'formapress-crm-pipeline',
-		'formapress_crm_pipeline_page_html',
+		'formapress-crm-dashboard',
+		'formapress_crm_dashboard_page_html',
 		$icon,
 		24
 	);
 
-	// Dashboard submenu.
+	// Dashboard submenu - must be added explicitly to show as first item.
 	add_submenu_page(
-		'formapress-crm-pipeline',
-		'Tableau de bord',
-		'Tableau de bord',
-		'manage_options',
 		'formapress-crm-dashboard',
-		'formapress_crm_dashboard_page_html'
+		'Tableau de bord',
+		'Tableau de bord',
+		'edit_posts',
+		'formapress-crm-dashboard',
+		'formapress_crm_dashboard_page_html',
+		1 // Priority 1 to appear first.
 	);
 
-	// Pipeline submenu (will show as first item).
+	// Pipeline submenu.
 	add_submenu_page(
-		'formapress-crm-pipeline',
+		'formapress-crm-dashboard',
 		'Pipeline commercial',
 		'Pipeline commercial',
 		'edit_posts',
 		'formapress-crm-pipeline',
-		'formapress_crm_pipeline_page_html'
+		'formapress_crm_pipeline_page_html',
+		2 // Priority 2.
 	);
 
 	// Migration Tools submenu.
 	add_submenu_page(
-		'formapress-crm-pipeline',
+		'formapress-crm-dashboard',
 		'Outils de migration',
 		'Outils de migration',
 		'manage_options',
@@ -60,20 +62,185 @@ function formapress_crm_admin_menu() {
 
 	// Note: Attributes configuration is in unified Settings page (options-general.php -> Forma-Press -> CRM tab)
 	// Note: Opportunities and Invoices CPTs automatically appear here
-	// because they have 'show_in_menu' => 'formapress-crm-pipeline'.
+	// because they have 'show_in_menu' => 'formapress-crm-dashboard'.
 }
 add_action( 'admin_menu', 'formapress_crm_admin_menu' );
+
+/**
+ * Reorder CRM submenu items to ensure Dashboard appears first.
+ */
+function formapress_crm_reorder_submenu() {
+	global $submenu;
+
+	if ( ! isset( $submenu['formapress-crm-dashboard'] ) ) {
+		return;
+	}
+
+	// Find and move dashboard to first position.
+	$dashboard_item = null;
+	$dashboard_key  = null;
+
+	foreach ( $submenu['formapress-crm-dashboard'] as $key => $item ) {
+		if ( $item[2] === 'formapress-crm-dashboard' ) {
+			$dashboard_item = $item;
+			$dashboard_key  = $key;
+			break;
+		}
+	}
+
+	if ( $dashboard_item && $dashboard_key !== 0 ) {
+		// Remove dashboard from its current position.
+		unset( $submenu['formapress-crm-dashboard'][ $dashboard_key ] );
+		// Add it at the beginning.
+		array_unshift( $submenu['formapress-crm-dashboard'], $dashboard_item );
+	}
+}
+add_action( 'admin_menu', 'formapress_crm_reorder_submenu', 999 );
 
 /**
  * Displays the HTML for the CRM Dashboard page.
  */
 function formapress_crm_dashboard_page_html() {
+	// Get opportunity stats.
+	$stages = formapress_crm_get_opportunity_stages();
+	$stats  = array();
+
+	foreach ( $stages as $stage_key => $stage_label ) {
+		$count       = wp_count_posts( 'crm_opportunity' );
+		$stage_count = 0;
+
+		$opportunities       = get_posts(
+			array(
+				'post_type'      => 'crm_opportunity',
+				'posts_per_page' => -1,
+				'post_status'    => 'publish',
+				'meta_query'     => array(
+					array(
+						'key'     => '_crm_opportunity_stage',
+						'value'   => $stage_key,
+						'compare' => '=',
+					),
+				),
+			)
+		);
+		$stats[ $stage_key ] = count( $opportunities );
+	}
+
+	// Calculate total opportunity value.
+	$all_opportunities = get_posts(
+		array(
+			'post_type'      => 'crm_opportunity',
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+		)
+	);
+
+	$total_value = 0;
+	$won_value   = 0;
+
+	foreach ( $all_opportunities as $opp ) {
+		$value = get_post_meta( $opp->ID, '_crm_opportunity_value', true );
+		$stage = get_post_meta( $opp->ID, '_crm_opportunity_stage', true );
+
+		if ( $value ) {
+			$total_value += floatval( $value );
+			if ( 'won' === $stage ) {
+				$won_value += floatval( $value );
+			}
+		}
+	}
+
+	// Get person counts.
+	$person_count  = wp_count_posts( 'crm_person' )->publish;
+	$company_count = wp_count_posts( 'zqpm_entreprise' )->publish;
+
 	?>
 	<div class="wrap">
 		<h1>Tableau de bord CRM</h1>
-		<p>Bienvenue dans le CRM Formapress. Les statistiques et rapports seront disponibles ici.</p>
+
+		<div class="crm-dashboard-actions" style="margin: 20px 0;">
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=formapress-crm-edit-opportunity' ) ); ?>" class="button button-primary button-hero">
+				+ Nouvelle opportunité
+			</a>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=formapress-crm-pipeline' ) ); ?>" class="button button-hero">
+				Voir le pipeline
+			</a>
+		</div>
+
+		<!-- Stats Grid -->
+		<div class="crm-dashboard-stats" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0;">
+			<!-- Total Opportunities -->
+			<div class="crm-stat-card" style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04);">
+				<div style="font-size: 14px; color: #646970; margin-bottom: 8px;">Total opportunités</div>
+				<div style="font-size: 32px; font-weight: 600; color: #1d2327;"><?php echo esc_html( count( $all_opportunities ) ); ?></div>
+			</div>
+
+			<!-- Won Opportunities -->
+			<div class="crm-stat-card" style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04);">
+				<div style="font-size: 14px; color: #646970; margin-bottom: 8px;">Opportunités gagnées</div>
+				<div style="font-size: 32px; font-weight: 600; color: #00a32a;"><?php echo esc_html( $stats['won'] ?? 0 ); ?></div>
+			</div>
+
+			<!-- Total Value -->
+			<div class="crm-stat-card" style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04);">
+				<div style="font-size: 14px; color: #646970; margin-bottom: 8px;">Valeur totale pipeline</div>
+				<div style="font-size: 32px; font-weight: 600; color: var(--zform_color_orange, #f57d20);"><?php echo esc_html( number_format( $total_value, 0, ',', ' ' ) ); ?> €</div>
+			</div>
+
+			<!-- Won Value -->
+			<div class="crm-stat-card" style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04);">
+				<div style="font-size: 14px; color: #646970; margin-bottom: 8px;">Chiffre d'affaires gagné</div>
+				<div style="font-size: 32px; font-weight: 600; color: #00a32a;"><?php echo esc_html( number_format( $won_value, 0, ',', ' ' ) ); ?> €</div>
+			</div>
+
+			<!-- Persons -->
+			<div class="crm-stat-card" style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04);">
+				<div style="font-size: 14px; color: #646970; margin-bottom: 8px;">Personnes</div>
+				<div style="font-size: 32px; font-weight: 600; color: #1d2327;"><?php echo esc_html( $person_count ); ?></div>
+			</div>
+
+			<!-- Companies -->
+			<div class="crm-stat-card" style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04);">
+				<div style="font-size: 14px; color: #646970; margin-bottom: 8px;">Entreprises</div>
+				<div style="font-size: 32px; font-weight: 600; color: #1d2327;"><?php echo esc_html( $company_count ); ?></div>
+			</div>
+		</div>
+
+		<!-- Pipeline Overview -->
+		<div style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04); margin-top: 20px;">
+			<h2 style="margin-top: 0;">Répartition du pipeline</h2>
+			<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
+				<?php foreach ( $stages as $stage_key => $stage_label ) : ?>
+					<div style="text-align: center; padding: 15px; background: #f6f7f7; border-radius: 4px;">
+						<div style="font-size: 24px; font-weight: 600; color: #1d2327; margin-bottom: 5px;">
+							<?php echo esc_html( $stats[ $stage_key ] ?? 0 ); ?>
+						</div>
+						<div style="font-size: 12px; color: #646970;">
+							<?php echo esc_html( $stage_label ); ?>
+						</div>
+					</div>
+				<?php endforeach; ?>
+			</div>
+		</div>
 	</div>
 	<?php
+}
+
+/**
+ * Get opportunity stages.
+ *
+ * @return array Stages array.
+ */
+function formapress_crm_get_opportunity_stages() {
+	return array(
+		'new'                  => 'Nouveau prospect',
+		'qualified'            => 'Qualifié',
+		'proposal_in_progress' => 'Proposition en préparation',
+		'proposal'             => 'Proposition envoyée',
+		'negotiation'          => 'En négociation',
+		'won'                  => 'Gagné',
+		'lost'                 => 'Perdu',
+	);
 }
 
 /**
@@ -82,12 +249,13 @@ function formapress_crm_dashboard_page_html() {
 function formapress_crm_pipeline_page_html() {
 	// Pipeline stages in French.
 	$stages = array(
-		'new'         => 'Nouveau prospect',
-		'qualified'   => 'Qualifié',
-		'proposal'    => 'Proposition envoyée',
-		'negotiation' => 'En négociation',
-		'won'         => 'Gagné',
-		'lost'        => 'Perdu',
+		'new'                  => 'Nouveau prospect',
+		'qualified'            => 'Qualifié',
+		'proposal_in_progress' => 'Proposition en préparation',
+		'proposal'             => 'Proposition envoyée',
+		'negotiation'          => 'En négociation',
+		'won'                  => 'Gagné',
+		'lost'                 => 'Perdu',
 	);
 
 	// Get all opportunities.
@@ -122,7 +290,7 @@ function formapress_crm_pipeline_page_html() {
 		<h1>Pipeline commercial</h1>
 
 		<div class="crm-pipeline-actions" style="margin: 20px 0;">
-			<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=crm_opportunity' ) ); ?>" class="button button-primary">
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=formapress-crm-edit-opportunity' ) ); ?>" class="button button-primary">
 				+ Nouvelle opportunité
 			</a>
 			<button class="button crm-quick-add-trigger">
@@ -150,7 +318,7 @@ function formapress_crm_pipeline_page_html() {
 								?>
 								<div class="kanban-card" data-opportunity-id="<?php echo esc_attr( $opp->ID ); ?>" draggable="true">
 									<div class="card-title">
-										<a href="<?php echo esc_url( get_edit_post_link( $opp->ID ) ); ?>">
+										<a href="<?php echo esc_url( admin_url( 'admin.php?page=formapress-crm-edit-opportunity&id=' . $opp->ID ) ); ?>">
 											<?php echo esc_html( $opp->post_title ); ?>
 										</a>
 									</div>
@@ -678,7 +846,7 @@ function formapress_crm_update_opportunity_stage() {
 	}
 
 	// Validate stage.
-	$valid_stages = array( 'new', 'qualified', 'proposal', 'negotiation', 'won', 'lost' );
+	$valid_stages = array( 'new', 'qualified', 'proposal_in_progress', 'proposal', 'negotiation', 'won', 'lost' );
 	if ( ! in_array( $new_stage, $valid_stages, true ) ) {
 		wp_send_json_error( array( 'message' => 'Étape invalide' ) );
 	}

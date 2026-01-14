@@ -173,11 +173,38 @@ class FormaPress_Person_Manager {
 		$types = is_array( $args['person_type'] ) ? $args['person_type'] : array( $args['person_type'] );
 		wp_set_object_terms( $person_id, $types, 'person_type' );
 
-		// Save core identity fields
+		// Save core identity fields to attributes for each person type.
 		$core_fields = array( 'civilite', 'prenom', 'nom', 'email', 'telephone', 'mobile', 'fonction', 'adresse', 'ville', 'code_postal', 'pays' );
-		foreach ( $core_fields as $field ) {
-			if ( isset( $args[ $field ] ) ) {
-				update_post_meta( $person_id, '_crm_' . $field, sanitize_text_field( $args[ $field ] ) );
+		// Field name variants (different schemas use different slugs).
+		$field_variants = array(
+			'prenom'    => array( 'prenom', 'firstname' ),
+			'nom'       => array( 'nom', 'name' ),
+			'email'     => array( 'email', 'mail' ),
+			'telephone' => array( 'telephone', 'tel' ),
+		);
+
+		foreach ( $types as $type_slug ) {
+			if ( class_exists( 'ZForm_Attributes_Core' ) ) {
+				$schema      = ZForm_Attributes_Core::get_attributes_schema( $type_slug );
+				$meta_prefix = 'crm_person_' . $type_slug . '_attributes_';
+
+				foreach ( $schema as $field_slug => $field_config ) {
+					// Check if this field matches a core field (directly or via variant).
+					$value = null;
+					foreach ( $core_fields as $core_field ) {
+						if ( $field_slug === $core_field ) {
+							$value = isset( $args[ $core_field ] ) ? sanitize_text_field( $args[ $core_field ] ) : '';
+							break;
+						} elseif ( isset( $field_variants[ $core_field ] ) && in_array( $field_slug, $field_variants[ $core_field ], true ) ) {
+							$value = isset( $args[ $core_field ] ) ? sanitize_text_field( $args[ $core_field ] ) : '';
+							break;
+						}
+					}
+
+					if ( null !== $value ) {
+						update_post_meta( $person_id, $meta_prefix . $field_slug, $value );
+					}
+				}
 			}
 		}
 
@@ -352,22 +379,25 @@ class FormaPress_Person_Manager {
 			return null;
 		}
 
-		// Build person data array
+		// Get core identity fields from attributes (reads from primary person type).
+		$identity = self::get_person_identity_from_attributes( $person_id );
+
+		// Build person data array.
 		$data = array(
 			'id'          => $person->ID,
 			'title'       => $person->post_title,
 			'types'       => self::get_person_types( $person_id ),
-			'civilite'    => get_post_meta( $person_id, '_crm_civilite', true ),
-			'prenom'      => get_post_meta( $person_id, '_crm_prenom', true ),
-			'nom'         => get_post_meta( $person_id, '_crm_nom', true ),
-			'email'       => get_post_meta( $person_id, '_crm_email', true ),
-			'telephone'   => get_post_meta( $person_id, '_crm_telephone', true ),
-			'mobile'      => get_post_meta( $person_id, '_crm_mobile', true ),
-			'fonction'    => get_post_meta( $person_id, '_crm_fonction', true ),
-			'adresse'     => get_post_meta( $person_id, '_crm_adresse', true ),
-			'ville'       => get_post_meta( $person_id, '_crm_ville', true ),
-			'code_postal' => get_post_meta( $person_id, '_crm_code_postal', true ),
-			'pays'        => get_post_meta( $person_id, '_crm_pays', true ),
+			'civilite'    => $identity['civilite'] ?? '',
+			'prenom'      => $identity['prenom'] ?? '',
+			'nom'         => $identity['nom'] ?? '',
+			'email'       => $identity['email'] ?? '',
+			'telephone'   => $identity['telephone'] ?? '',
+			'mobile'      => $identity['mobile'] ?? '',
+			'fonction'    => $identity['fonction'] ?? '',
+			'adresse'     => $identity['adresse'] ?? '',
+			'ville'       => $identity['ville'] ?? '',
+			'code_postal' => $identity['code_postal'] ?? '',
+			'pays'        => $identity['pays'] ?? '',
 			'company_id'  => get_post_meta( $person_id, '_crm_company_id', true ),
 			'user_id'     => get_post_meta( $person_id, '_crm_user_id', true ),
 			'created_at'  => get_post_meta( $person_id, '_crm_created_at', true ),
@@ -378,7 +408,74 @@ class FormaPress_Person_Manager {
 	}
 
 	/**
+	 * Get core identity fields from person attributes (primary person type)
+	 *
+	 * Reads from the attribute meta keys based on the person's first type.
+	 * Priority: trainee > instructor > company_contact > prospect > funder_contact.
+	 *
+	 * @param int $person_id Person ID.
+	 * @return array Associative array of core identity fields.
+	 */
+	public static function get_person_identity_from_attributes( $person_id ) {
+		$person_types = wp_get_object_terms( $person_id, 'person_type', array( 'fields' => 'slugs' ) );
+		if ( is_wp_error( $person_types ) || empty( $person_types ) ) {
+			return array();
+		}
+
+		// Priority order for reading schema.
+		$schema_priority = array( 'trainee', 'instructor', 'company_contact', 'prospect', 'funder_contact' );
+		$primary_type    = null;
+
+		foreach ( $schema_priority as $type ) {
+			if ( in_array( $type, $person_types, true ) ) {
+				$primary_type = $type;
+				break;
+			}
+		}
+
+		if ( ! $primary_type ) {
+			$primary_type = $person_types[0]; // Fallback to first type.
+		}
+
+		// Meta prefix for this person type.
+		$meta_prefix = 'crm_person_' . $primary_type . '_attributes_';
+
+		// Core field names and their variants.
+		$field_mapping = array(
+			'civilite'    => array( 'civilite' ),
+			'prenom'      => array( 'prenom', 'firstname' ),
+			'nom'         => array( 'nom', 'name' ),
+			'email'       => array( 'email', 'mail' ),
+			'telephone'   => array( 'telephone', 'tel' ),
+			'mobile'      => array( 'mobile' ),
+			'fonction'    => array( 'fonction' ),
+			'adresse'     => array( 'adresse' ),
+			'ville'       => array( 'ville' ),
+			'code_postal' => array( 'code_postal', 'cp' ),
+			'pays'        => array( 'pays' ),
+		);
+
+		$identity = array();
+
+		foreach ( $field_mapping as $standard_key => $variants ) {
+			$value = '';
+			foreach ( $variants as $variant ) {
+				$meta_key = $meta_prefix . $variant;
+				$value    = get_post_meta( $person_id, $meta_key, true );
+				if ( ! empty( $value ) ) {
+					break;
+				}
+			}
+			$identity[ $standard_key ] = $value;
+		}
+
+		return $identity;
+	}
+
+	/**
 	 * Find person by email
+	 *
+	 * Searches across all person types' attribute email fields.
 	 *
 	 * @param string $email Email address
 	 * @return int|null Person ID or null if not found
@@ -386,13 +483,26 @@ class FormaPress_Person_Manager {
 	public static function find_by_email( $email ) {
 		global $wpdb;
 
+		$email = sanitize_email( $email );
+		if ( empty( $email ) ) {
+			return null;
+		}
+
+		// Search across all person type attribute email variants.
 		$person_id = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT post_id FROM $wpdb->postmeta
-             WHERE meta_key = '_crm_email'
+             WHERE meta_key IN (
+                 'crm_person_trainee_attributes_email',
+                 'crm_person_trainee_attributes_mail',
+                 'crm_person_instructor_attributes_email',
+                 'crm_person_company_contact_attributes_email',
+                 'crm_person_prospect_attributes_email',
+                 'crm_person_funder_contact_attributes_email'
+             )
              AND meta_value = %s
              LIMIT 1",
-				sanitize_email( $email )
+				$email
 			)
 		);
 

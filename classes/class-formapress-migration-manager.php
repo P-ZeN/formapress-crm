@@ -33,6 +33,7 @@ class FormaPress_Migration_Manager {
 			WP_CLI::add_command( 'formapress migrate-v2', array( __CLASS__, 'cli_migrate_v2' ) );
 			WP_CLI::add_command( 'formapress migrate-status', array( __CLASS__, 'cli_status' ) );
 			WP_CLI::add_command( 'formapress migrate-rollback', array( __CLASS__, 'cli_rollback' ) );
+			WP_CLI::add_command( 'formapress migrate-crm-to-attributes', array( __CLASS__, 'cli_migrate_crm_to_attributes' ) );
 		}
 	}
 
@@ -468,11 +469,20 @@ class FormaPress_Migration_Manager {
 								'post_title' => ( $v1_data['prenom'] ?? '' ) . ' ' . strtoupper( $v1_data['nom'] ?? '' ),
 							)
 						);
-						update_post_meta( $person_id, '_crm_civilite', $civilite );
-						update_post_meta( $person_id, '_crm_prenom', $v1_data['prenom'] ?? '' );
-						update_post_meta( $person_id, '_crm_nom', $v1_data['nom'] ?? '' );
-						update_post_meta( $person_id, '_crm_email', $v1_data['email'] ?? '' );
-						update_post_meta( $person_id, '_crm_telephone', $v1_data['telephone'] ?? '' );
+
+						// Set person_type taxonomy (ensure it's set for existing persons).
+						$existing_types = wp_get_object_terms( $person_id, 'person_type', array( 'fields' => 'slugs' ) );
+						if ( ! in_array( 'instructor', $existing_types, true ) ) {
+							$existing_types[] = 'instructor';
+							wp_set_object_terms( $person_id, $existing_types, 'person_type' );
+						}
+
+						// Save core identity fields to instructor attributes.
+						update_post_meta( $person_id, 'crm_person_instructor_attributes_civilite', $civilite );
+						update_post_meta( $person_id, 'crm_person_instructor_attributes_prenom', $v1_data['prenom'] ?? '' );
+						update_post_meta( $person_id, 'crm_person_instructor_attributes_nom', $v1_data['nom'] ?? '' );
+						update_post_meta( $person_id, 'crm_person_instructor_attributes_email', $v1_data['email'] ?? '' );
+						update_post_meta( $person_id, 'crm_person_instructor_attributes_telephone', $v1_data['telephone'] ?? '' );
 					} else {
 						// Create v2 person.
 						$person_id = FormaPress_Person_Manager::create_person(
@@ -748,7 +758,7 @@ class FormaPress_Migration_Manager {
 								wp_set_object_terms( $person_id, $existing_types, 'person_type' );
 							}                           // Update civilite if we have a better value.
 							if ( ! empty( $civilite ) ) {
-								update_post_meta( $person_id, '_crm_civilite', $civilite );
+								update_post_meta( $person_id, 'crm_person_trainee_attributes_civilite', $civilite );
 							}
 						} else {
 							// Create new person.
@@ -1270,6 +1280,180 @@ class FormaPress_Migration_Manager {
 
 		WP_CLI::log( '' );
 		WP_CLI::success( 'Schema migration complete!' );
+	}
+
+	/**
+	 * WP-CLI: Migrate _crm_* meta to attributes system
+	 *
+	 * Copies legacy _crm_* core identity meta to proper attribute keys
+	 * for each person type. This fixes data created by the old migration
+	 * scripts that wrote to the wrong meta keys.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--dry-run]
+	 * : Preview changes without making them
+	 *
+	 * [--delete-old]
+	 * : Delete _crm_* meta after successful migration
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp formapress migrate-crm-to-attributes --dry-run
+	 *     wp formapress migrate-crm-to-attributes --delete-old
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public static function cli_migrate_crm_to_attributes( $args, $assoc_args ) {
+		$dry_run    = isset( $assoc_args['dry-run'] );
+		$delete_old = isset( $assoc_args['delete-old'] );
+
+		WP_CLI::line( '' );
+		WP_CLI::line( WP_CLI::colorize( '%Y╔═══════════════════════════════════════════════════════════╗%n' ) );
+		WP_CLI::line( WP_CLI::colorize( '%Y║     Migrate _crm_* Meta → Attributes System              ║%n' ) );
+		WP_CLI::line( WP_CLI::colorize( '%Y╚═══════════════════════════════════════════════════════════╝%n' ) );
+		WP_CLI::line( '' );
+
+		if ( $dry_run ) {
+			WP_CLI::warning( '🔍 DRY RUN MODE - No changes will be made' );
+			WP_CLI::line( '' );
+		}
+
+		// Get all persons.
+		$persons = get_posts(
+			array(
+				'post_type'      => 'crm_person',
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'post_status'    => 'any',
+			)
+		);
+
+		$total    = count( $persons );
+		$migrated = 0;
+		$skipped  = 0;
+		$errors   = 0;
+		$deleted  = 0;
+
+		WP_CLI::log( "Found {$total} persons to process" );
+		WP_CLI::line( '' );
+
+		$progress = \WP_CLI\Utils\make_progress_bar( 'Processing persons', $total );
+
+		// Legacy meta keys to migrate.
+		$crm_fields = array( 'civilite', 'prenom', 'nom', 'email', 'telephone', 'mobile', 'fonction', 'adresse', 'ville', 'code_postal', 'pays' );
+
+		// Field variants (different schemas use different slugs).
+		$field_variants = array(
+			'prenom'      => array( 'prenom', 'firstname' ),
+			'nom'         => array( 'nom', 'name' ),
+			'email'       => array( 'email', 'mail' ),
+			'telephone'   => array( 'telephone', 'tel' ),
+			'code_postal' => array( 'code_postal', 'cp' ),
+		);
+
+		foreach ( $persons as $person_id ) {
+			try {
+				// Get person types.
+				$person_types = wp_get_object_terms( $person_id, 'person_type', array( 'fields' => 'slugs' ) );
+				if ( is_wp_error( $person_types ) || empty( $person_types ) ) {
+					++$skipped;
+					$progress->tick();
+					continue;
+				}
+
+				$has_data = false;
+
+				// For each person type, copy _crm_* fields to attribute keys.
+				foreach ( $person_types as $type_slug ) {
+					if ( ! class_exists( 'ZForm_Attributes_Core' ) ) {
+						continue;
+					}
+
+					$schema = ZForm_Attributes_Core::get_attributes_schema( $type_slug );
+					if ( empty( $schema ) ) {
+						continue;
+					}
+
+					$meta_prefix = 'crm_person_' . $type_slug . '_attributes_';
+
+					foreach ( $crm_fields as $field ) {
+						$crm_meta_key = '_crm_' . $field;
+						$crm_value    = get_post_meta( $person_id, $crm_meta_key, true );
+
+						if ( empty( $crm_value ) && '0' !== $crm_value ) {
+							continue; // No data to migrate for this field.
+						}
+
+						$has_data = true;
+
+						// Find which schema field slug to use (handle variants).
+						$target_slugs = isset( $field_variants[ $field ] ) ? $field_variants[ $field ] : array( $field );
+
+						foreach ( $target_slugs as $slug ) {
+							if ( isset( $schema[ $slug ] ) ) {
+								$attr_meta_key = $meta_prefix . $slug;
+
+								if ( ! $dry_run ) {
+									// Only update if attribute doesn't already have a value.
+									$existing = get_post_meta( $person_id, $attr_meta_key, true );
+									if ( empty( $existing ) ) {
+										update_post_meta( $person_id, $attr_meta_key, $crm_value );
+									}
+								}
+
+								break; // Found matching schema field, stop checking variants.
+							}
+						}
+					}
+				}
+
+				if ( $has_data ) {
+					++$migrated;
+
+					// Optionally delete old _crm_* meta after migration.
+					if ( ! $dry_run && $delete_old ) {
+						foreach ( $crm_fields as $field ) {
+							delete_post_meta( $person_id, '_crm_' . $field );
+						}
+						++$deleted;
+					}
+				} else {
+					++$skipped;
+				}
+			} catch ( Exception $e ) {
+				++$errors;
+				WP_CLI::warning( "Error processing person {$person_id}: " . $e->getMessage() );
+			}
+
+			$progress->tick();
+		}
+
+		$progress->finish();
+
+		// Summary.
+		WP_CLI::line( '' );
+		WP_CLI::line( '=== Migration Summary ===' );
+		WP_CLI::log( "Total persons: {$total}" );
+		WP_CLI::log( "Migrated: {$migrated}" );
+		WP_CLI::log( "Skipped (no data): {$skipped}" );
+		if ( $deleted > 0 ) {
+			WP_CLI::log( "Deleted old _crm_* meta: {$deleted}" );
+		}
+		if ( $errors > 0 ) {
+			WP_CLI::log( WP_CLI::colorize( "%RErrors: {$errors}%n" ) );
+		}
+
+		WP_CLI::line( '' );
+
+		if ( $dry_run ) {
+			WP_CLI::line( WP_CLI::colorize( '%YRun without --dry-run to perform actual migration%n' ) );
+		} else {
+			WP_CLI::success( '🎉 Migration complete! _crm_* data copied to attributes.' );
+		}
+
+		WP_CLI::line( '' );
 	}
 }
 

@@ -85,7 +85,7 @@ function formapress_crm_register_person_cpt() {
 		'public'             => true,
 		'publicly_queryable' => true,
 		'show_ui'            => true,
-		'show_in_menu'       => 'formapress-crm-pipeline', // You might want to make this a submenu of a main CRM menu later
+
 		'query_var'          => true,
 		'rewrite'            => array( 'slug' => 'crm-person' ),
 		'capability_type'    => 'post',

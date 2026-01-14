@@ -46,7 +46,7 @@ function formapress_crm_register_invoice_cpt() {
 		'public'             => true,
 		'publicly_queryable' => true,
 		'show_ui'            => true,
-		'show_in_menu'       => 'formapress-crm-pipeline', // Show under the main CRM menu.
+		'show_in_menu'       => 'formapress-crm-dashboard', // Show under the main CRM menu.
 		'query_var'          => true,
 		'rewrite'            => array( 'slug' => 'crm-invoice' ),
 		'capability_type'    => 'post',

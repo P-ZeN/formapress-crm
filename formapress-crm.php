@@ -49,33 +49,41 @@ add_action( 'plugins_loaded', 'formapress_crm_load_textdomain' );
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/default-schemas.php'; // Week 4: Immutable attribute schemas.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/attribute-sanitization.php'; // Week 4: Sanitization filters for locked fields.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/migration-v2-attributes.php'; // Week 4: Unified v1→v2 attribute migration.
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-person-manager.php';
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-company-manager.php';
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-migration-manager.php';
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-shortcode-manager.php';
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/class-formapress-person-adapter.php'; // v1/v2 compatibility layer.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'classes/class-formapress-person-manager.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'classes/class-formapress-company-manager.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'classes/class-formapress-migration-manager.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'classes/class-formapress-shortcode-manager.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'classes/class-formapress-person-adapter.php'; // v1/v2 compatibility layer.
 
 /**
  * Include v2 Admin UI
  */
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/admin/class-formapress-person-meta-boxes.php';
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/admin/class-formapress-company-meta-boxes.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/class-formapress-person-meta-boxes.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/class-formapress-company-meta-boxes.php';
 
 /**
  * Include CPTs and Taxonomies
  * Note: crm_person and crm_company CPTs are now in zFormations base (includes/cpt-person.php, includes/cpt-company.php)
  */
-// require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-person.php'; // Moved to zFormations.
-// require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/taxonomy-company-role.php'; // Moved to zFormations.
+// require_once FORMAPRESS_CRM_PLUGIN_DIR . 'cpts/cpt-person.php'; // Moved to zFormations.
+// require_once FORMAPRESS_CRM_PLUGIN_DIR . 'cpts/taxonomy-company-role.php'; // Moved to zFormations.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/synchronization.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/legacy-sync.php'; // Bridge to old system.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/migration-reimport.php'; // Re-import with all fields.
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/admin-pages.php';
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-opportunity.php';
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-invoice.php'; // Financial tracking for BPF.
-require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cpt-activity.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-pages.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-opportunity-editor.php'; // Custom opportunity editor UI.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-person-editor.php'; // Custom person editor UI.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-notices-filter.php'; // Filter out annoying notices on FormaPress pages.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'cpts/cpt-opportunity.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'cpts/cpt-invoice.php'; // Financial tracking for BPF.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'cpts/cpt-activity.php';
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-templates-integration.php'; // Extend ZQPM templates for CRM.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-template-shortcodes.php'; // CRM shortcodes for templates.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-pdf-generation.php'; // PDF generation with CRM context.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-send-communication.php'; // Email sending with PDF attachments.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-communication-modal.php'; // Communication modal UI.
 
-// WP-CLI commands
+// WP-CLI commands.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/cli-fix-trainee-field-names.php';
 
 /**
@@ -91,6 +99,11 @@ FormaPress_Shortcode_Manager::init();
  * Enqueue admin scripts and styles.
  */
 function formapress_crm_admin_enqueue_scripts_styles( $hook_suffix ) {
+	// Don't load on opportunity editor page - it has its own scripts.
+	if ( 'admin_page_formapress-crm-edit-opportunity' === $hook_suffix ) {
+		return;
+	}
+
 	// Get current screen to check post type.
 	$screen = get_current_screen();
 

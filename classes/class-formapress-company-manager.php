@@ -743,7 +743,9 @@ class FormaPress_Company_Manager {
 							'ID'         => $person_id,
 							'post_title' => $prenom . ' ' . strtoupper( $nom ),
 						)
-					);                  // Update core meta fields.
+					);
+
+					// Update core meta fields.
 					update_post_meta( $person_id, '_crm_civilite', $referent_data['civilite'] ?? '' );
 					update_post_meta( $person_id, '_crm_prenom', $referent_data['prenom'] ?? '' );
 					update_post_meta( $person_id, '_crm_nom', $referent_data['nom'] ?? '' );
@@ -762,6 +764,33 @@ class FormaPress_Company_Manager {
 
 					// Store this additional v1 company relationship (allow multiple).
 					add_post_meta( $person_id, '_crm_v1_entreprise_id', $entreprise_id, false );
+
+					// CRITICAL: Add company to _crm_entreprise_ids for many-to-many support.
+					$existing_company_ids = get_post_meta( $person_id, '_crm_entreprise_ids', true );
+					if ( empty( $existing_company_ids ) ) {
+						// First company - check if _crm_company_id exists (legacy single company storage).
+						$legacy_company_id = get_post_meta( $person_id, '_crm_company_id', true );
+						if ( ! empty( $legacy_company_id ) && is_numeric( $legacy_company_id ) ) {
+							$existing_company_ids = array( (int) $legacy_company_id );
+						} else {
+							$existing_company_ids = array();
+						}
+					} elseif ( ! is_array( $existing_company_ids ) ) {
+						// Convert single value to array.
+						$existing_company_ids = array( (int) $existing_company_ids );
+					}
+
+					// Add current company if not already in the array.
+					if ( ! in_array( $company_id, $existing_company_ids, true ) ) {
+						$existing_company_ids[] = $company_id;
+						update_post_meta( $person_id, '_crm_entreprise_ids', $existing_company_ids );
+					}
+
+					// Also set/update _crm_company_id to point to first company (backward compatibility).
+					$current_primary = get_post_meta( $person_id, '_crm_company_id', true );
+					if ( empty( $current_primary ) && ! empty( $existing_company_ids ) ) {
+						update_post_meta( $person_id, '_crm_company_id', $existing_company_ids[0] );
+					}
 
 					// Update fonction if provided (will use last value).
 					if ( ! empty( $referent_data['poste'] ) ) {
