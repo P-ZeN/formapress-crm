@@ -5,8 +5,8 @@
  * Adapted from opportunity editor with person-specific elements
  */
 
-/* Import base editor styles from opportunity editor */
-@import "opportunity-editor.scss";
+/* Use modern @use syntax instead of deprecated @import */
+@use "opportunity-editor.scss";
 
 /* Person Type Badge Colors */
 .person-type-badge {

@@ -39,6 +39,7 @@ export default defineConfig({
                 "person-editor-styles": resolve(__dirname, "scss/person-editor.scss"),
                 "communication-modal": resolve(__dirname, "js/admin/communication-modal.js"),
                 "communication-modal-styles": resolve(__dirname, "scss/communication-modal.scss"),
+                "invoice-editor-styles": resolve(__dirname, "scss/invoice-editor.scss"),
             },
             output: {
                 entryFileNames: () => {

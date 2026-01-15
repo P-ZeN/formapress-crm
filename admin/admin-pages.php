@@ -39,17 +39,6 @@ function formapress_crm_admin_menu() {
 		1 // Priority 1 to appear first.
 	);
 
-	// Pipeline submenu.
-	add_submenu_page(
-		'formapress-crm-dashboard',
-		'Pipeline commercial',
-		'Pipeline commercial',
-		'edit_posts',
-		'formapress-crm-pipeline',
-		'formapress_crm_pipeline_page_html',
-		2 // Priority 2.
-	);
-
 	// Migration Tools submenu.
 	add_submenu_page(
 		'formapress-crm-dashboard',
@@ -154,6 +143,56 @@ function formapress_crm_dashboard_page_html() {
 	$person_count  = wp_count_posts( 'crm_person' )->publish;
 	$company_count = wp_count_posts( 'zqpm_entreprise' )->publish;
 
+	// Get invoice statistics for current year.
+	$current_year = gmdate( 'Y' );
+	$year_start   = $current_year . '-01-01';
+	$year_end     = $current_year . '-12-31';
+
+	$all_invoices = get_posts(
+		array(
+			'post_type'      => 'crm_invoice',
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+			'meta_query'     => array(
+				array(
+					'key'     => '_crm_invoice_date',
+					'value'   => array( $year_start, $year_end ),
+					'compare' => 'BETWEEN',
+					'type'    => 'DATE',
+				),
+			),
+		)
+	);
+
+	$invoice_total   = 0;
+	$invoice_paid    = 0;
+	$invoice_pending = 0;
+	$invoice_overdue = 0;
+	$today           = gmdate( 'Y-m-d' );
+
+	foreach ( $all_invoices as $invoice ) {
+		$amount         = floatval( get_post_meta( $invoice->ID, '_crm_invoice_amount', true ) );
+		$payment_status = get_post_meta( $invoice->ID, '_crm_invoice_payment_status', true );
+		$payment_date   = get_post_meta( $invoice->ID, '_crm_invoice_payment_date', true );
+
+		$invoice_total += $amount;
+
+		if ( 'paid' === $payment_status ) {
+			$invoice_paid += $amount;
+		} elseif ( 'partial' === $payment_status ) {
+			$invoice_pending += $amount;
+		} else {
+			$invoice_pending += $amount;
+			// Check if overdue (invoice date + 30 days default).
+			$invoice_date = get_post_meta( $invoice->ID, '_crm_invoice_date', true );
+			if ( $invoice_date && strtotime( $invoice_date . ' +30 days' ) < strtotime( $today ) ) {
+				$invoice_overdue += $amount;
+			}
+		}
+	}
+
+	$invoice_count = count( $all_invoices );
+
 	?>
 	<div class="wrap">
 		<h1>Tableau de bord CRM</h1>
@@ -162,8 +201,8 @@ function formapress_crm_dashboard_page_html() {
 			<a href="<?php echo esc_url( admin_url( 'admin.php?page=formapress-crm-edit-opportunity' ) ); ?>" class="button button-primary button-hero">
 				+ Nouvelle opportunité
 			</a>
-			<a href="<?php echo esc_url( admin_url( 'admin.php?page=formapress-crm-pipeline' ) ); ?>" class="button button-hero">
-				Voir le pipeline
+			<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=crm_invoice' ) ); ?>" class="button button-hero">
+				+ Nouvelle facture
 			</a>
 		</div>
 
@@ -206,20 +245,254 @@ function formapress_crm_dashboard_page_html() {
 			</div>
 		</div>
 
-		<!-- Pipeline Overview -->
-		<div style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04); margin-top: 20px;">
-			<h2 style="margin-top: 0;">Répartition du pipeline</h2>
-			<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px;">
-				<?php foreach ( $stages as $stage_key => $stage_label ) : ?>
-					<div style="text-align: center; padding: 15px; background: #f6f7f7; border-radius: 4px;">
-						<div style="font-size: 24px; font-weight: 600; color: #1d2327; margin-bottom: 5px;">
-							<?php echo esc_html( $stats[ $stage_key ] ?? 0 ); ?>
-						</div>
-						<div style="font-size: 12px; color: #646970;">
-							<?php echo esc_html( $stage_label ); ?>
-						</div>
+		<!-- Invoice Statistics Section -->
+		<div style="margin-top: 30px;">
+			<h2 style="margin-bottom: 20px;">📊 Facturation <?php echo esc_html( $current_year ); ?></h2>
+			<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px;">
+				<!-- Total Invoiced -->
+				<div class="crm-stat-card" style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04);">
+					<div style="font-size: 14px; color: #646970; margin-bottom: 8px;">Total facturé</div>
+					<div style="font-size: 32px; font-weight: 600; color: var(--zform_color_orange, #f57d20);"><?php echo esc_html( number_format( $invoice_total, 0, ',', ' ' ) ); ?> €</div>
+					<div style="font-size: 12px; color: #646970; margin-top: 8px;"><?php echo esc_html( $invoice_count ); ?> facture<?php echo $invoice_count > 1 ? 's' : ''; ?></div>
+				</div>
+
+				<!-- Amount Paid -->
+				<div class="crm-stat-card" style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04);">
+					<div style="font-size: 14px; color: #646970; margin-bottom: 8px;">Montant encaissé</div>
+					<div style="font-size: 32px; font-weight: 600; color: #00a32a;"><?php echo esc_html( number_format( $invoice_paid, 0, ',', ' ' ) ); ?> €</div>
+					<div style="font-size: 12px; color: #00a32a; margin-top: 8px;">
+						<?php echo $invoice_total > 0 ? esc_html( round( ( $invoice_paid / $invoice_total ) * 100 ) ) : 0; ?>% du total
 					</div>
-				<?php endforeach; ?>
+				</div>
+
+				<!-- Amount Pending -->
+				<div class="crm-stat-card" style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04);">
+					<div style="font-size: 14px; color: #646970; margin-bottom: 8px;">Montant en attente</div>
+					<div style="font-size: 32px; font-weight: 600; color: #f0b323;"><?php echo esc_html( number_format( $invoice_pending, 0, ',', ' ' ) ); ?> €</div>
+					<div style="font-size: 12px; color: #646970; margin-top: 8px;">
+						<?php echo $invoice_total > 0 ? esc_html( round( ( $invoice_pending / $invoice_total ) * 100 ) ) : 0; ?>% du total
+					</div>
+				</div>
+
+				<!-- Amount Overdue -->
+				<?php if ( $invoice_overdue > 0 ) : ?>
+					<div class="crm-stat-card" style="background: #fcf0f1; border: 1px solid #d63638; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04);">
+						<div style="font-size: 14px; color: #d63638; margin-bottom: 8px; font-weight: 600;">⚠️ Montant en retard</div>
+						<div style="font-size: 32px; font-weight: 600; color: #d63638;"><?php echo esc_html( number_format( $invoice_overdue, 0, ',', ' ' ) ); ?> €</div>
+						<div style="font-size: 12px; color: #d63638; margin-top: 8px;">À relancer</div>
+					</div>
+				<?php endif; ?>
+			</div>
+
+			<!-- Quick Links -->
+			<div style="margin-top: 20px;">
+				<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=crm_invoice' ) ); ?>" class="button">
+					Voir toutes les factures
+				</a>
+				<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=crm_invoice&payment_status=pending' ) ); ?>" class="button">
+					Factures en attente
+				</a>
+				<?php if ( $invoice_overdue > 0 ) : ?>
+					<a href="<?php echo esc_url( admin_url( 'edit.php?post_type=crm_invoice&payment_status=overdue' ) ); ?>" class="button" style="color: #d63638; border-color: #d63638;">
+						⚠️ Factures en retard
+					</a>
+				<?php endif; ?>
+			</div>
+		</div>
+
+		<!-- Pipeline Kanban Board - Two Row Layout -->
+		<div style="background: #fff; border: 1px solid #c3c4c7; padding: 20px; box-shadow: 0 1px 1px rgba(0,0,0,0.04); margin-top: 20px;">
+			<h2 style="margin-top: 0;">Pipeline commercial</h2>
+
+			<?php
+			// Get all opportunities.
+			$all_opps_for_kanban = get_posts(
+				array(
+					'post_type'      => 'crm_opportunity',
+					'posts_per_page' => -1,
+					'post_status'    => 'publish',
+					'orderby'        => 'date',
+					'order'          => 'DESC',
+				)
+			);
+
+			// Group opportunities by stage.
+			$opportunities_by_stage = array();
+			foreach ( $stages as $stage_key => $stage_label ) {
+				$opportunities_by_stage[ $stage_key ] = array();
+			}
+
+			foreach ( $all_opps_for_kanban as $opp ) {
+				$stage = get_post_meta( $opp->ID, '_crm_opportunity_stage', true );
+				if ( empty( $stage ) ) {
+					$stage = 'new'; // Default.
+				}
+				if ( isset( $opportunities_by_stage[ $stage ] ) ) {
+					$opportunities_by_stage[ $stage ][] = $opp;
+				}
+			}
+
+			// Split stages into two rows (4 stages on first row, 3 on second).
+			$stage_keys = array_keys( $stages );
+			$first_row  = array_slice( $stage_keys, 0, 4, true );
+			$second_row = array_slice( $stage_keys, 4, 3, true );
+			?>
+
+			<style>
+				.crm-kanban-board.dashboard-variant {
+					display: flex;
+					flex-direction: column;
+					gap: 20px;
+					padding: 0;
+					min-height: auto;
+				}
+				.crm-kanban-board.dashboard-variant .kanban-row {
+					display: grid;
+					gap: 15px;
+				}
+				.crm-kanban-board.dashboard-variant .kanban-row.row-4 {
+					grid-template-columns: repeat(4, 1fr);
+				}
+				.crm-kanban-board.dashboard-variant .kanban-row.row-3 {
+					grid-template-columns: repeat(3, 1fr);
+				}
+				.crm-kanban-board.dashboard-variant .kanban-column {
+					min-width: 0;
+				}
+				.crm-kanban-board.dashboard-variant .kanban-cards {
+					max-height: 400px;
+					overflow-y: auto;
+				}
+			</style>
+
+			<div class="crm-kanban-board dashboard-variant">
+				<!-- First row: 4 stages -->
+				<div class="kanban-row row-4">
+					<?php foreach ( $first_row as $stage_key ) : ?>
+						<div class="kanban-column" data-stage="<?php echo esc_attr( $stage_key ); ?>">
+							<div class="column-header">
+								<div class="column-title"><?php echo esc_html( $stages[ $stage_key ] ); ?></div>
+								<span class="column-count"><?php echo count( $opportunities_by_stage[ $stage_key ] ); ?></span>
+							</div>
+							<div class="kanban-cards" data-stage="<?php echo esc_attr( $stage_key ); ?>">
+								<?php
+								if ( ! empty( $opportunities_by_stage[ $stage_key ] ) ) :
+									foreach ( $opportunities_by_stage[ $stage_key ] as $opp ) :
+										$value        = get_post_meta( $opp->ID, '_crm_opportunity_value', true );
+										$close_date   = get_post_meta( $opp->ID, '_crm_opportunity_close_date', true );
+										$person_id    = get_post_meta( $opp->ID, '_crm_associated_person_id', true );
+										$company_id   = get_post_meta( $opp->ID, '_crm_associated_company_id', true );
+										$person_name  = $person_id ? get_the_title( $person_id ) : '';
+										$company_name = $company_id ? get_the_title( $company_id ) : '';
+										?>
+										<div class="kanban-card" data-opportunity-id="<?php echo esc_attr( $opp->ID ); ?>" draggable="true">
+											<div class="card-title">
+												<a href="<?php echo esc_url( admin_url( 'admin.php?page=formapress-crm-edit-opportunity&id=' . $opp->ID ) ); ?>">
+													<?php echo esc_html( $opp->post_title ); ?>
+												</a>
+											</div>
+											<?php if ( $company_name ) : ?>
+												<div class="card-company">
+													<span class="dashicons dashicons-building"></span>
+													<?php echo esc_html( $company_name ); ?>
+												</div>
+											<?php endif; ?>
+											<?php if ( $person_name ) : ?>
+												<div class="card-contact">
+													<span class="dashicons dashicons-admin-users"></span>
+													<?php echo esc_html( $person_name ); ?>
+												</div>
+											<?php endif; ?>
+											<?php if ( $value ) : ?>
+												<div class="card-value">
+													<?php echo number_format( (float) $value, 2, ',', ' ' ); ?> €
+												</div>
+											<?php endif; ?>
+											<?php if ( $close_date ) : ?>
+												<div class="card-footer">
+													<div class="card-date">
+														<span class="dashicons dashicons-calendar-alt"></span>
+														<?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $close_date ) ) ); ?>
+													</div>
+												</div>
+											<?php endif; ?>
+										</div>
+										<?php
+									endforeach;
+								else :
+									?>
+									<p class="kanban-empty">Aucune opportunité</p>
+									<?php
+								endif;
+								?>
+							</div>
+						</div>
+					<?php endforeach; ?>
+				</div>
+
+				<!-- Second row: 3 stages -->
+				<div class="kanban-row row-3">
+					<?php foreach ( $second_row as $stage_key ) : ?>
+						<div class="kanban-column" data-stage="<?php echo esc_attr( $stage_key ); ?>">
+							<div class="column-header">
+								<div class="column-title"><?php echo esc_html( $stages[ $stage_key ] ); ?></div>
+								<span class="column-count"><?php echo count( $opportunities_by_stage[ $stage_key ] ); ?></span>
+							</div>
+							<div class="kanban-cards" data-stage="<?php echo esc_attr( $stage_key ); ?>">
+								<?php
+								if ( ! empty( $opportunities_by_stage[ $stage_key ] ) ) :
+									foreach ( $opportunities_by_stage[ $stage_key ] as $opp ) :
+										$value        = get_post_meta( $opp->ID, '_crm_opportunity_value', true );
+										$close_date   = get_post_meta( $opp->ID, '_crm_opportunity_close_date', true );
+										$person_id    = get_post_meta( $opp->ID, '_crm_associated_person_id', true );
+										$company_id   = get_post_meta( $opp->ID, '_crm_associated_company_id', true );
+										$person_name  = $person_id ? get_the_title( $person_id ) : '';
+										$company_name = $company_id ? get_the_title( $company_id ) : '';
+										?>
+										<div class="kanban-card" data-opportunity-id="<?php echo esc_attr( $opp->ID ); ?>" draggable="true">
+											<div class="card-title">
+												<a href="<?php echo esc_url( admin_url( 'admin.php?page=formapress-crm-edit-opportunity&id=' . $opp->ID ) ); ?>">
+													<?php echo esc_html( $opp->post_title ); ?>
+												</a>
+											</div>
+											<?php if ( $company_name ) : ?>
+												<div class="card-company">
+													<span class="dashicons dashicons-building"></span>
+													<?php echo esc_html( $company_name ); ?>
+												</div>
+											<?php endif; ?>
+											<?php if ( $person_name ) : ?>
+												<div class="card-contact">
+													<span class="dashicons dashicons-admin-users"></span>
+													<?php echo esc_html( $person_name ); ?>
+												</div>
+											<?php endif; ?>
+											<?php if ( $value ) : ?>
+												<div class="card-value">
+													<?php echo number_format( (float) $value, 2, ',', ' ' ); ?> €
+												</div>
+											<?php endif; ?>
+											<?php if ( $close_date ) : ?>
+												<div class="card-footer">
+													<div class="card-date">
+														<span class="dashicons dashicons-calendar-alt"></span>
+														<?php echo esc_html( date_i18n( 'd/m/Y', strtotime( $close_date ) ) ); ?>
+													</div>
+												</div>
+											<?php endif; ?>
+										</div>
+										<?php
+									endforeach;
+								else :
+									?>
+									<p class="kanban-empty">Aucune opportunité</p>
+									<?php
+								endif;
+								?>
+							</div>
+						</div>
+					<?php endforeach; ?>
+				</div>
 			</div>
 		</div>
 	</div>
@@ -241,6 +514,194 @@ function formapress_crm_get_opportunity_stages() {
 		'won'                  => 'Gagné',
 		'lost'                 => 'Perdu',
 	);
+}
+
+/**
+ * Register dashboard widgets.
+ */
+function formapress_crm_add_dashboard_widgets() {
+	wp_add_dashboard_widget(
+		'formapress_crm_pipeline_widget',
+		'Pipeline commercial FormaPress',
+		'formapress_crm_dashboard_pipeline_widget'
+	);
+}
+add_action( 'wp_dashboard_setup', 'formapress_crm_add_dashboard_widgets' );
+
+/**
+ * Display pipeline widget on WordPress dashboard.
+ * Shows all opportunity stages in a two-row layout.
+ */
+function formapress_crm_dashboard_pipeline_widget() {
+	$stages = formapress_crm_get_opportunity_stages();
+	$stats  = array();
+
+	// Get count for each stage.
+	foreach ( $stages as $stage_key => $stage_label ) {
+		$opportunities       = get_posts(
+			array(
+				'post_type'      => 'crm_opportunity',
+				'posts_per_page' => -1,
+				'post_status'    => 'publish',
+				'meta_query'     => array(
+					array(
+						'key'     => '_crm_opportunity_stage',
+						'value'   => $stage_key,
+						'compare' => '=',
+					),
+				),
+			)
+		);
+		$stats[ $stage_key ] = count( $opportunities );
+	}
+
+	// Calculate total opportunity value.
+	$all_opportunities = get_posts(
+		array(
+			'post_type'      => 'crm_opportunity',
+			'posts_per_page' => -1,
+			'post_status'    => 'publish',
+		)
+	);
+
+	$total_value = 0;
+	$won_value   = 0;
+
+	foreach ( $all_opportunities as $opp ) {
+		$value = get_post_meta( $opp->ID, '_crm_opportunity_value', true );
+		$stage = get_post_meta( $opp->ID, '_crm_opportunity_stage', true );
+
+		if ( $value ) {
+			$total_value += floatval( $value );
+			if ( 'won' === $stage ) {
+				$won_value += floatval( $value );
+			}
+		}
+	}
+
+	// Split stages into two rows (4 stages on first row, 3 on second).
+	$stage_keys = array_keys( $stages );
+	$first_row  = array_slice( $stage_keys, 0, 4, true );
+	$second_row = array_slice( $stage_keys, 4, 3, true );
+	?>
+	<style>
+		.formapress-pipeline-widget {
+			margin: -12px -12px 0 -12px;
+		}
+		.formapress-pipeline-row {
+			display: grid;
+			grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+			gap: 8px;
+			margin-bottom: 12px;
+			padding: 12px;
+			background: #f6f7f7;
+		}
+		.formapress-pipeline-stage {
+			text-align: center;
+			padding: 12px 8px;
+			background: #fff;
+			border: 1px solid #dcdcde;
+			border-radius: 4px;
+			transition: all 0.2s ease;
+		}
+		.formapress-pipeline-stage:hover {
+			box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+			transform: translateY(-2px);
+		}
+		.formapress-pipeline-stage.stage-won {
+			border-color: #00a32a;
+			background: #f0f9f3;
+		}
+		.formapress-pipeline-stage.stage-lost {
+			border-color: #d63638;
+			background: #fcf0f1;
+		}
+		.pipeline-stage-count {
+			font-size: 24px;
+			font-weight: 600;
+			color: #1d2327;
+			margin-bottom: 4px;
+		}
+		.stage-won .pipeline-stage-count {
+			color: #00a32a;
+		}
+		.stage-lost .pipeline-stage-count {
+			color: #d63638;
+		}
+		.pipeline-stage-label {
+			font-size: 11px;
+			color: #646970;
+			line-height: 1.3;
+		}
+		.formapress-pipeline-summary {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 12px;
+			padding: 12px;
+			background: #fff;
+			border-top: 1px solid #dcdcde;
+		}
+		.pipeline-summary-item {
+			text-align: center;
+		}
+		.pipeline-summary-value {
+			font-size: 20px;
+			font-weight: 600;
+			color: var(--zform_color_orange, #f57d20);
+			margin-bottom: 2px;
+		}
+		.pipeline-summary-label {
+			font-size: 11px;
+			color: #646970;
+		}
+		.formapress-pipeline-actions {
+			padding: 12px;
+			text-align: center;
+			background: #fff;
+			border-top: 1px solid #dcdcde;
+		}
+	</style>
+
+	<div class="formapress-pipeline-widget">
+		<!-- First row: 4 stages -->
+		<div class="formapress-pipeline-row">
+			<?php foreach ( $first_row as $stage_key ) : ?>
+				<div class="formapress-pipeline-stage stage-<?php echo esc_attr( $stage_key ); ?>">
+					<div class="pipeline-stage-count"><?php echo esc_html( $stats[ $stage_key ] ?? 0 ); ?></div>
+					<div class="pipeline-stage-label"><?php echo esc_html( $stages[ $stage_key ] ); ?></div>
+				</div>
+			<?php endforeach; ?>
+		</div>
+
+		<!-- Second row: 3 stages -->
+		<div class="formapress-pipeline-row">
+			<?php foreach ( $second_row as $stage_key ) : ?>
+				<div class="formapress-pipeline-stage stage-<?php echo esc_attr( $stage_key ); ?>">
+					<div class="pipeline-stage-count"><?php echo esc_html( $stats[ $stage_key ] ?? 0 ); ?></div>
+					<div class="pipeline-stage-label"><?php echo esc_html( $stages[ $stage_key ] ); ?></div>
+				</div>
+			<?php endforeach; ?>
+		</div>
+
+		<!-- Summary stats -->
+		<div class="formapress-pipeline-summary">
+			<div class="pipeline-summary-item">
+				<div class="pipeline-summary-value"><?php echo esc_html( number_format( $total_value, 0, ',', ' ' ) ); ?> €</div>
+				<div class="pipeline-summary-label">Valeur totale</div>
+			</div>
+			<div class="pipeline-summary-item">
+				<div class="pipeline-summary-value" style="color: #00a32a;"><?php echo esc_html( number_format( $won_value, 0, ',', ' ' ) ); ?> €</div>
+				<div class="pipeline-summary-label">CA gagné</div>
+			</div>
+		</div>
+
+		<!-- Action buttons -->
+		<div class="formapress-pipeline-actions">
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=formapress-crm-pipeline' ) ); ?>" class="button button-small">Voir le pipeline détaillé</a>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=formapress-crm-edit-opportunity' ) ); ?>" class="button button-primary button-small">+ Nouvelle opportunité</a>
+		</div>
+	</div>
+	<?php
 }
 
 /**

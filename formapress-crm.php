@@ -42,6 +42,36 @@ function formapress_crm_load_textdomain() {
 add_action( 'plugins_loaded', 'formapress_crm_load_textdomain' );
 
 /**
+ * Activation hook: Ensure Step 19 (Facturation) exists in ZQPM taxonomy.
+ */
+function formapress_crm_ensure_step_19_term() {
+	// Check if ZQPM is active.
+	if ( ! function_exists( 'zqpm_steps_titles' ) ) {
+		return;
+	}
+
+	// Check if step_19 term already exists.
+	$term = get_term_by( 'slug', 'step_19', 'zqpm_steps' );
+	if ( $term ) {
+		return; // Already exists.
+	}
+
+	// Create Step 19 term.
+	wp_insert_term(
+		zqpm_steps_titles( 19 ),
+		'zqpm_steps',
+		array(
+			'slug'   => 'step_19',
+			'parent' => 0,
+		)
+	);
+}
+register_activation_hook( __FILE__, 'formapress_crm_ensure_step_19_term' );
+
+// Also run on init to ensure term exists (in case plugin was already active).
+add_action( 'init', 'formapress_crm_ensure_step_19_term', 20 );
+
+/**
  * Include v2 Core Classes (Week 2+)
  * Note: Person and Company CPTs are now registered in zFormations base plugin.
  * These managers are kept for their utility functions only.
@@ -72,6 +102,8 @@ require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/legacy-sync.php'; // Bridge t
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/migration-reimport.php'; // Re-import with all fields.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-pages.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-opportunity-editor.php'; // Custom opportunity editor UI.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-invoice-editor.php'; // Custom invoice editor UI.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-invoice-list-columns.php'; // Invoice list table customizations.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-person-editor.php'; // Custom person editor UI.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-notices-filter.php'; // Filter out annoying notices on FormaPress pages.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'cpts/cpt-opportunity.php';
@@ -79,6 +111,9 @@ require_once FORMAPRESS_CRM_PLUGIN_DIR . 'cpts/cpt-invoice.php'; // Financial tr
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'cpts/cpt-activity.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-templates-integration.php'; // Extend ZQPM templates for CRM.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-template-shortcodes.php'; // CRM shortcodes for templates.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/invoice-shortcodes.php'; // Invoice shortcodes for document generation.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/invoice-pdf-generator.php'; // Invoice PDF generation system.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/invoice-email-sender.php'; // Invoice email sending with tracking.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-pdf-generation.php'; // PDF generation with CRM context.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-send-communication.php'; // Email sending with PDF attachments.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-communication-modal.php'; // Communication modal UI.
