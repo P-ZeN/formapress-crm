@@ -69,6 +69,7 @@ function formapress_is_formapress_page() {
 		'crm_submenu_page_formapress-crm-pipeline',
 		'crm_submenu_page_formapress-crm-communication',
 		'admin_page_formapress-crm-edit-opportunity',
+		'crm_page_formapress-financial-reports',
 	);
 
 	if ( in_array( $screen->id, $formapress_screen_ids, true ) ) {

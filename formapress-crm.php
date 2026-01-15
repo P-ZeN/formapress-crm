@@ -104,6 +104,7 @@ require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-pages.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-opportunity-editor.php'; // Custom opportunity editor UI.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-invoice-editor.php'; // Custom invoice editor UI.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-invoice-list-columns.php'; // Invoice list table customizations.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-financial-reports.php'; // Financial reports and analytics.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-person-editor.php'; // Custom person editor UI.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'admin/admin-notices-filter.php'; // Filter out annoying notices on FormaPress pages.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'cpts/cpt-opportunity.php';
@@ -114,6 +115,8 @@ require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-template-shortcodes.php';
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/invoice-shortcodes.php'; // Invoice shortcodes for document generation.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/invoice-pdf-generator.php'; // Invoice PDF generation system.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/invoice-email-sender.php'; // Invoice email sending with tracking.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/financial-reports-ajax.php'; // Financial reports AJAX handlers.
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/financial-reports-export.php'; // Financial reports export (Excel, BPF).
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-pdf-generation.php'; // PDF generation with CRM context.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-send-communication.php'; // Email sending with PDF attachments.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-communication-modal.php'; // Communication modal UI.
