@@ -235,24 +235,86 @@ function formapress_crm_invoice_associations_meta_box_html( $post ) {
 	);
 
 	?>
-	<p>
-		<label for="crm_invoice_zqpm_id"><strong>Suivi de session associé</strong></label><br />
-		<select id="crm_invoice_zqpm_id" name="crm_invoice_zqpm_id" class="widefat" style="max-width: 100%;">
-			<option value="">— Aucun —</option>
-			<?php foreach ( $zqpms as $zqpm ) : ?>
-				<?php
-				$zqpm_title = $zqpm->post_title;
-				if ( function_exists( 'zqpm_construct_new_title' ) ) {
-					$zqpm_title = zqpm_construct_new_title( $zqpm->post_title, $zqpm->ID );
+	<!-- ZQPM Session Link -->
+	<?php if ( ! empty( $zqpm_id ) && get_post_type( $zqpm_id ) === 'zqpm' ) : ?>
+		<?php
+		// Display linked ZQPM as immutable card.
+		$zqpm_title = get_the_title( $zqpm_id );
+		if ( function_exists( 'zqpm_construct_new_title' ) ) {
+			$zqpm_title = zqpm_construct_new_title( $zqpm_title, $zqpm_id );
+		}
+
+		// Get session details.
+		$session_id        = get_post_meta( $zqpm_id, 'zqpm_session_id', true );
+		$session_date      = '';
+		$formation_title   = '';
+		$participant_count = 0;
+
+		if ( $session_id && class_exists( 'zSession' ) ) {
+			$session = new zSession( $session_id );
+			if ( $session->formation_id ) {
+				$formation = get_post( $session->formation_id );
+				if ( $formation ) {
+					$formation_title = $formation->post_title;
 				}
-				?>
-				<option value="<?php echo esc_attr( $zqpm->ID ); ?>" <?php selected( $zqpm_id, $zqpm->ID ); ?>>
-					<?php echo esc_html( $zqpm_title ); ?>
-				</option>
-			<?php endforeach; ?>
-		</select>
-		<small>Session de formation liée</small>
-	</p>
+			}
+			$session_date = get_the_date( 'd/m/Y', $session_id );
+			$registrants  = get_post_meta( $session_id, 'zqpm_registrants', true );
+			if ( is_array( $registrants ) ) {
+				$participant_count = count( $registrants );
+			}
+		}
+		?>
+		<div style="background: #f0f6fc; border-left: 4px solid var(--zform_color_orange, #ff8c00); padding: 12px; margin-bottom: 16px; border-radius: 4px;">
+			<p style="margin: 0 0 8px 0;">
+				<strong style="font-size: 13px; color: #2c3338;">
+					<span class="dashicons dashicons-calendar-alt" style="color: var(--zform_color_orange, #ff8c00); vertical-align: middle;"></span>
+					Suivi de session lié
+				</strong>
+			</p>
+			<p style="margin: 0 0 10px 0; font-size: 13px; color: #2c3338; line-height: 1.6;">
+				<strong><?php echo esc_html( $formation_title ? $formation_title : $zqpm_title ); ?></strong>
+				<?php if ( $session_date ) : ?>
+					<br><span style="color: #646970;">📅 <?php echo esc_html( $session_date ); ?></span>
+				<?php endif; ?>
+				<?php if ( $participant_count > 0 ) : ?>
+					<span style="color: #646970;"> • 👥 <?php echo esc_html( $participant_count ); ?> participant<?php echo $participant_count > 1 ? 's' : ''; ?></span>
+				<?php endif; ?>
+			</p>
+			<div style="display: flex; gap: 8px;">
+				<a href="<?php echo esc_url( get_edit_post_link( $zqpm_id ) ); ?>" class="button button-secondary" style="flex: 1; text-align: center;" target="_blank">
+					<span class="dashicons dashicons-external" style="font-size: 14px; vertical-align: middle;"></span>
+					Voir le Suivi
+				</a>
+				<button type="button" class="button" onclick="if(confirm('Êtes-vous sûr de vouloir dissocier ce Suivi de session ?')) { document.getElementById('crm_invoice_zqpm_id_select_wrapper').style.display='block'; this.parentElement.parentElement.style.display='none'; document.getElementById('crm_invoice_zqpm_id').value=''; }" style="flex: 0 0 auto;">
+					<span class="dashicons dashicons-update-alt" style="font-size: 14px; vertical-align: middle;"></span>
+					Changer
+				</button>
+			</div>
+		</div>
+		<div id="crm_invoice_zqpm_id_select_wrapper" style="display: none;">
+	<?php else : ?>
+		<div id="crm_invoice_zqpm_id_select_wrapper">
+	<?php endif; ?>
+		<p>
+			<label for="crm_invoice_zqpm_id"><strong>Suivi de session associé</strong></label><br />
+			<select id="crm_invoice_zqpm_id" name="crm_invoice_zqpm_id" class="widefat" style="max-width: 100%;">
+				<option value="">— Aucun —</option>
+				<?php foreach ( $zqpms as $zqpm ) : ?>
+					<?php
+					$zqpm_title = $zqpm->post_title;
+					if ( function_exists( 'zqpm_construct_new_title' ) ) {
+						$zqpm_title = zqpm_construct_new_title( $zqpm->post_title, $zqpm->ID );
+					}
+					?>
+					<option value="<?php echo esc_attr( $zqpm->ID ); ?>" <?php selected( $zqpm_id, $zqpm->ID ); ?>>
+						<?php echo esc_html( $zqpm_title ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+			<small>Session de formation liée</small>
+		</p>
+	</div>
 
 	<p>
 		<label for="crm_invoice_company_id"><strong>Entreprise</strong></label><br />

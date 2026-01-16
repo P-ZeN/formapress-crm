@@ -176,14 +176,18 @@ function formapress_crm_opportunity_associations_meta_box_html( $post ) {
  * @param WP_Post $post The current post object.
  */
 function formapress_crm_opportunity_zqpm_link_meta_box_html( $post ) {
-	$stage   = get_post_meta( $post->ID, '_crm_opportunity_stage', true );
-	$zqpm_id = get_post_meta( $post->ID, '_crm_opportunity_zqpm_id', true );
+	$stage        = get_post_meta( $post->ID, '_crm_opportunity_stage', true );
+	$zqpm_id      = get_post_meta( $post->ID, '_crm_opportunity_zqpm_id', true );
+	$company_id   = get_post_meta( $post->ID, '_crm_associated_company_id', true );
+	$person_id    = get_post_meta( $post->ID, '_crm_associated_person_id', true );
+	$formation_id = get_post_meta( $post->ID, '_crm_associated_formation_id', true );
 
 	// Only show conversion option for won opportunities.
 	if ( 'won' !== $stage ) {
 		?>
-		<p style="color: #666;">
-			<em>Une fois cette opportunité marquée comme "Gagné", vous pourrez créer un suivi ZQPM.</em>
+		<p style="color: #646970; font-size: 13px; line-height: 1.5;">
+			<span class="dashicons dashicons-info" style="color: #72aee6;"></span>
+			<em>Une fois cette opportunité marquée comme <strong>"Gagné"</strong>, vous pourrez créer ou lier un Suivi de session.</em>
 		</p>
 		<?php
 		return;
@@ -193,37 +197,184 @@ function formapress_crm_opportunity_zqpm_link_meta_box_html( $post ) {
 	if ( $zqpm_id && get_post_type( $zqpm_id ) === 'zqpm' ) {
 		$zqpm_title = get_the_title( $zqpm_id );
 		if ( empty( $zqpm_title ) ) {
-			$zqpm_title = 'ZQPM #' . $zqpm_id;
+			$zqpm_title = 'Suivi de session #' . $zqpm_id;
+		}
+
+		// Get ZQPM meta for display.
+		$session_id   = get_post_meta( $zqpm_id, 'zqpm_session_id', true );
+		$session_info = '';
+		if ( $session_id && class_exists( 'zSession' ) ) {
+			$session = new zSession( $session_id );
+			if ( $session->formation_id ) {
+				$formation = get_post( $session->formation_id );
+				if ( $formation ) {
+					$session_info = ' - ' . esc_html( $formation->post_title );
+				}
+			}
 		}
 		?>
-		<p>
-			<strong style="color: #00a32a;">✓ ZQPM créé</strong><br />
-			<a href="<?php echo esc_url( get_edit_post_link( $zqpm_id ) ); ?>" class="button button-secondary" style="margin-top: 8px; width: 100%;">
-				<?php echo esc_html( $zqpm_title ); ?>
+		<div style="background: #f0f6fc; border: 1px solid #c3e7ff; border-radius: 4px; padding: 12px; margin-bottom: 12px;">
+			<p style="margin: 0 0 8px 0; color: #00a32a; font-weight: 600;">
+				<span class="dashicons dashicons-yes-alt" style="font-size: 16px;"></span>
+				Suivi de session lié
+			</p>
+			<p style="margin: 0 0 10px 0; font-size: 13px; color: #2c3338;">
+				<strong><?php echo esc_html( $zqpm_title ); ?></strong>
+				<?php echo esc_html( $session_info ); ?>
+			</p>
+			<a href="<?php echo esc_url( get_edit_post_link( $zqpm_id ) ); ?>" class="button button-primary" style="width: 100%; text-align: center;" target="_blank">
+				<span class="dashicons dashicons-external" style="font-size: 16px; vertical-align: middle;"></span>
+				Voir le Suivi de session
 			</a>
-		</p>
-		<p style="color: #666; font-size: 12px; margin-top: 10px;">
-			<label for="crm_opportunity_zqpm_id">ID ZQPM lié :</label><br />
-			<input type="number" id="crm_opportunity_zqpm_id" name="crm_opportunity_zqpm_id" value="<?php echo esc_attr( $zqpm_id ); ?>" class="widefat" />
-			<em>Modifiez l'ID pour changer le lien ou videz pour dissocier.</em>
-		</p>
+		</div>
+		<details style="margin-top: 12px;">
+			<summary style="cursor: pointer; color: #2271b1; font-size: 12px;">
+				<span class="dashicons dashicons-admin-links" style="font-size: 14px; vertical-align: middle;"></span>
+				Modifier le lien
+			</summary>
+			<div style="margin-top: 8px; padding: 10px; background: #f6f7f7; border-radius: 4px;">
+				<label for="crm_opportunity_zqpm_id" style="display: block; margin-bottom: 4px; font-size: 12px; font-weight: 500;">ID du Suivi de session :</label>
+				<input type="number" id="crm_opportunity_zqpm_id" name="crm_opportunity_zqpm_id" value="<?php echo esc_attr( $zqpm_id ); ?>" class="widefat" />
+				<small style="display: block; margin-top: 4px; color: #646970;">
+					Videz le champ pour dissocier ou entrez un nouvel ID.
+				</small>
+			</div>
+		</details>
 		<?php
 	} else {
-		// Show link to create new ZQPM.
+		// Build URL with prefilled params.
+		$create_url = add_query_arg(
+			array(
+				'post_type'        => 'zqpm',
+				'from_opportunity' => $post->ID,
+				'company_id'       => $company_id,
+				'person_id'        => $person_id,
+				'formation_id'     => $formation_id,
+			),
+			admin_url( 'post-new.php' )
+		);
+
+		// Get available ZQPMs for linking.
+		$zqpm_args = array(
+			'post_type'      => 'zqpm',
+			'posts_per_page' => 100,
+			'post_status'    => 'publish',
+			'orderby'        => 'date',
+			'order'          => 'DESC',
+		);
+
+		// Filter by formation if set.
+		if ( ! empty( $formation_id ) ) {
+			$zqpm_args['meta_query'] = array(
+				array(
+					'key'     => 'zqpm_formation_id',
+					'value'   => $formation_id,
+					'compare' => '=',
+				),
+			);
+		}
+
+		$zqpms = get_posts( $zqpm_args );
+
 		?>
-		<p>
-			<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=zqpm' ) ); ?>" class="button button-primary" style="width: 100%;" target="_blank">
-				+ Créer un suivi ZQPM
-			</a>
-		</p>
-		<p style="color: #666; font-size: 12px;">
-			<em>Créez le ZQPM avec la session appropriée, puis revenez ici pour le lier.</em>
-		</p>
-		<p style="margin-top: 10px;">
-			<label for="crm_opportunity_zqpm_id">ID ZQPM à lier :</label><br />
-			<input type="number" id="crm_opportunity_zqpm_id" name="crm_opportunity_zqpm_id" value="<?php echo esc_attr( $zqpm_id ); ?>" class="widefat" placeholder="Entrez l'ID du ZQPM" />
-			<small>Entrez l'ID du ZQPM créé pour l'associer à cette opportunité.</small>
-		</p>
+		<div style="background: #f9fafb; border: 1px solid #dcdcde; border-radius: 4px; padding: 12px; margin-bottom: 12px;">
+			<p style="margin: 0 0 10px 0; color: #2c3338; font-size: 13px;">
+				<span class="dashicons dashicons-calendar-alt" style="color: var(--zform_color_orange, #ff8c00);"></span>
+				<strong>Opportunité gagnée !</strong>
+			</p>
+			<button type="button" id="formapress-create-zqpm-btn" class="button button-primary" style="width: 100%; text-align: center; margin-bottom: 8px;" data-opportunity-id="<?php echo esc_attr( $post->ID ); ?>" data-company-id="<?php echo esc_attr( $company_id ); ?>" data-person-id="<?php echo esc_attr( $person_id ); ?>" data-formation-id="<?php echo esc_attr( $formation_id ); ?>">
+				<span class="dashicons dashicons-plus-alt" style="font-size: 16px; vertical-align: middle;"></span>
+				Créer un Suivi de session
+			</button>
+			<p style="margin: 8px 0; text-align: center; color: #646970; font-size: 12px;">ou</p>
+		</div>
+
+		<div style="background: #fff; border: 1px solid #dcdcde; border-radius: 4px; padding: 12px;">
+			<label for="crm_opportunity_zqpm_id" style="display: block; margin-bottom: 6px; font-weight: 500; font-size: 13px;">
+				<span class="dashicons dashicons-admin-links" style="font-size: 14px; vertical-align: middle;"></span>
+				Lier à un Suivi de session existant
+			</label>
+			<select id="crm_opportunity_zqpm_id" name="crm_opportunity_zqpm_id" class="widefat">
+				<option value="">— Sélectionner —</option>
+				<?php foreach ( $zqpms as $zqpm ) : ?>
+					<?php
+					$zqpm_title = get_the_title( $zqpm->ID );
+					if ( empty( $zqpm_title ) ) {
+						$zqpm_title = 'Suivi #' . $zqpm->ID;
+					}
+					$session_id   = get_post_meta( $zqpm->ID, 'zqpm_session_id', true );
+					$session_date = '';
+					if ( $session_id ) {
+						$session_date = ' - ' . get_the_date( 'd/m/Y', $session_id );
+					}
+					?>
+					<option value="<?php echo esc_attr( $zqpm->ID ); ?>">
+						<?php echo esc_html( $zqpm_title . $session_date ); ?>
+					</option>
+				<?php endforeach; ?>
+			</select>
+			<?php if ( ! empty( $formation_id ) ) : ?>
+				<small style="display: block; margin-top: 6px; color: #646970;">
+					Affiche les Suivis de session pour la formation sélectionnée.
+				</small>
+			<?php else : ?>
+				<small style="display: block; margin-top: 6px; color: #d63638;">
+					⚠️ Aucune formation définie. Affichage de tous les Suivis de session.
+				</small>
+			<?php endif; ?>
+		</div>
+
+		<!-- Modal for creating ZQPM -->
+		<div id="formapress-create-zqpm-modal" style="display: none;">
+			<div class="formapress-modal-overlay"></div>
+			<div class="formapress-modal-content">
+				<div class="formapress-modal-header">
+					<h2>Créer un Suivi de session</h2>
+					<button type="button" class="formapress-modal-close">&times;</button>
+				</div>
+				<div class="formapress-modal-body">
+					<p style="margin-bottom: 16px; color: #646970;">
+						Les informations de l'opportunité seront utilisées pour créer le Suivi de session.
+					</p>
+
+					<div style="background: #f0f6fc; border-left: 3px solid var(--zform_color_orange, #ff8c00); padding: 12px; margin-bottom: 16px;">
+						<p style="margin: 0 0 8px 0; font-weight: 600;">Données pré-remplies :</p>
+						<ul style="margin: 0; padding-left: 20px;">
+							<?php if ( $company_id ) : ?>
+								<li>Entreprise : <strong><?php echo esc_html( get_the_title( $company_id ) ); ?></strong></li>
+							<?php endif; ?>
+							<?php if ( $person_id ) : ?>
+								<li>Contact : <strong><?php echo esc_html( get_the_title( $person_id ) ); ?></strong></li>
+							<?php endif; ?>
+							<?php if ( $formation_id ) : ?>
+								<li>Formation : <strong><?php echo esc_html( get_the_title( $formation_id ) ); ?></strong></li>
+							<?php endif; ?>
+						</ul>
+					</div>
+
+					<div style="margin-bottom: 16px;">
+						<label for="formapress-session-select" style="display: block; margin-bottom: 6px; font-weight: 500;">
+							Session <span style="color: #d63638;">*</span>
+						</label>
+						<select id="formapress-session-select" class="widefat" required style="padding: 8px;">
+							<option value="">Chargement des sessions...</option>
+						</select>
+						<small style="display: block; margin-top: 4px; color: #646970;">
+							La session est obligatoire pour créer un Suivi de session.
+						</small>
+					</div>
+
+					<div id="formapress-zqpm-error" style="display: none; background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 12px; border-radius: 4px; margin-bottom: 16px;"></div>
+				</div>
+				<div class="formapress-modal-footer">
+					<button type="button" class="button button-secondary formapress-modal-close">Annuler</button>
+					<button type="button" id="formapress-create-zqpm-submit" class="button button-primary">
+						<span class="dashicons dashicons-yes" style="vertical-align: middle;"></span>
+						Créer le Suivi de session
+					</button>
+				</div>
+			</div>
+		</div>
 		<?php
 	}
 }

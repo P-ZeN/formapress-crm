@@ -35,6 +35,8 @@ export default defineConfig({
                 "formapress-crm-admin-styles": resolve(__dirname, "scss/formapress-crm-admin.scss"),
                 "opportunity-editor": resolve(__dirname, "js/admin/opportunity-editor.js"),
                 "opportunity-editor-styles": resolve(__dirname, "scss/opportunity-editor.scss"),
+                "opportunity-zqpm": resolve(__dirname, "js/admin/opportunity-zqpm.js"),
+                "opportunity-zqpm-styles": resolve(__dirname, "scss/opportunity-zqpm.scss"),
                 "person-editor": resolve(__dirname, "js/admin/person-editor.js"),
                 "person-editor-styles": resolve(__dirname, "scss/person-editor.scss"),
                 "communication-modal": resolve(__dirname, "js/admin/communication-modal.js"),

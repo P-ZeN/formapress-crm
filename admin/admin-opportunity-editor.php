@@ -549,28 +549,36 @@ function formapress_crm_render_opportunity_editor() {
 						</div>
 					</div>
 
-					<!-- ZQPM Link -->
+					<!-- Suivi de session Link -->
 					<?php if ( 'won' === $stage ) : ?>
 						<div class="editor-panel">
-							<h3 class="editor-panel-title"><?php esc_html_e( 'Suivi ZQPM', 'formapress-crm' ); ?></h3>
+							<h3 class="editor-panel-title"><?php esc_html_e( 'Suivi de session', 'formapress-crm' ); ?></h3>
 							<?php if ( $zqpm_id && get_post_type( $zqpm_id ) === 'zqpm' ) : ?>
 								<p class="editor-success-message">
-									<strong><?php esc_html_e( '✓ ZQPM créé', 'formapress-crm' ); ?></strong>
+									<strong><?php esc_html_e( '✓ Suivi de session créé', 'formapress-crm' ); ?></strong>
 								</p>
 								<a href="<?php echo esc_url( get_edit_post_link( $zqpm_id ) ); ?>" class="button button-secondary" style="width: 100%; margin-bottom: 10px;">
-									<?php echo esc_html( get_the_title( $zqpm_id ) ?: 'ZQPM #' . $zqpm_id ); ?>
+									<?php echo esc_html( get_the_title( $zqpm_id ) ?: 'Suivi de session #' . $zqpm_id ); ?>
 								</a>
 							<?php else : ?>
 								<p class="editor-help-text">
-									<?php esc_html_e( 'Créez un suivi ZQPM pour cette opportunité gagnée.', 'formapress-crm' ); ?>
+									<?php esc_html_e( 'Créez un Suivi de session pour cette opportunité gagnée.', 'formapress-crm' ); ?>
 								</p>
-								<a href="<?php echo esc_url( admin_url( 'post-new.php?post_type=zqpm' ) ); ?>" class="button button-secondary" style="width: 100%; margin-bottom: 10px;" target="_blank">
-									<?php esc_html_e( '+ Créer un suivi ZQPM', 'formapress-crm' ); ?>
-								</a>
+								<button
+									type="button"
+									class="button button-secondary open-zqpm-modal"
+									style="width: 100%; margin-bottom: 10px;"
+									data-opportunity-id="<?php echo esc_attr( $post_id ); ?>"
+									data-formation-id="<?php echo esc_attr( $formation_id ); ?>"
+									data-company-id="<?php echo esc_attr( $company_id ); ?>"
+									data-person-id="<?php echo esc_attr( $person_id ); ?>"
+								>
+									<?php esc_html_e( '+ Créer un Suivi de session', 'formapress-crm' ); ?>
+								</button>
 							<?php endif; ?>
 							<div class="editor-field">
 								<label for="zqpm-id" class="editor-label-small">
-									<?php esc_html_e( 'ID ZQPM', 'formapress-crm' ); ?>
+									<?php esc_html_e( 'ID Suivi de session', 'formapress-crm' ); ?>
 								</label>
 								<input
 									type="number"
@@ -578,9 +586,9 @@ function formapress_crm_render_opportunity_editor() {
 									name="opportunity_zqpm_id"
 									class="editor-input"
 									value="<?php echo esc_attr( $zqpm_id ); ?>"
-									placeholder="<?php esc_attr_e( 'ID du ZQPM', 'formapress-crm' ); ?>"
+									placeholder="<?php esc_attr_e( 'ID du Suivi de session', 'formapress-crm' ); ?>"
 								>
-								<small class="editor-help-text"><?php esc_html_e( 'Entrez l\'ID pour lier un ZQPM existant.', 'formapress-crm' ); ?></small>
+								<small class="editor-help-text"><?php esc_html_e( 'Entrez l\'ID pour lier un Suivi de session existant.', 'formapress-crm' ); ?></small>
 							</div>
 						</div>
 					<?php endif; ?>
@@ -594,6 +602,108 @@ function formapress_crm_render_opportunity_editor() {
 			formapress_crm_render_communication_modal( $post_id );
 		}
 		?>
+
+		<!-- ZQPM Creation Modal -->
+		<div id="zqpm-creation-modal" class="zqpm-modal" style="display: none;">
+			<div class="zqpm-modal-overlay"></div>
+			<div class="zqpm-modal-content">
+				<div class="zqpm-modal-header">
+					<h2 class="zqpm-modal-title"><?php esc_html_e( 'Créer un Suivi de session', 'formapress-crm' ); ?></h2>
+					<button type="button" class="zqpm-modal-close">&times;</button>
+				</div>
+				<div class="zqpm-modal-body">
+
+					<!-- Step 1: Formation Selection -->
+					<div class="zqpm-step" data-step="1">
+						<div class="zqpm-step-header">
+							<h3><?php esc_html_e( 'Étape 1 : Confirmer la formation', 'formapress-crm' ); ?></h3>
+							<p class="description"><?php esc_html_e( 'Confirmez ou sélectionnez la formation concernée.', 'formapress-crm' ); ?></p>
+						</div>
+						<div class="zqpm-form-field">
+							<label for="zqpm-formation-select">
+								<?php esc_html_e( 'Formation :', 'formapress-crm' ); ?>
+								<span class="required">*</span>
+							</label>
+							<select id="zqpm-formation-select" class="zqpm-select" required>
+								<option value=""><?php esc_html_e( 'Chargement...', 'formapress-crm' ); ?></option>
+							</select>
+						</div>
+					</div>
+
+					<!-- Step 2: Session Selection -->
+					<div class="zqpm-step" data-step="2" style="display: none;">
+						<div class="zqpm-step-header">
+							<h3><?php esc_html_e( 'Étape 2 : Sélectionner une session', 'formapress-crm' ); ?></h3>
+							<p class="description"><?php esc_html_e( 'Choisissez une session existante ou créez-en une nouvelle.', 'formapress-crm' ); ?></p>
+						</div>
+						<div class="zqpm-form-field">
+							<label for="zqpm-session-select">
+								<?php esc_html_e( 'Session :', 'formapress-crm' ); ?>
+								<span class="required">*</span>
+							</label>
+							<select id="zqpm-session-select" class="zqpm-select" required>
+								<option value=""><?php esc_html_e( 'Chargement...', 'formapress-crm' ); ?></option>
+							</select>
+						</div>
+						<div class="zqpm-create-session-option">
+							<p>
+								<strong><?php esc_html_e( 'Aucune session disponible ?', 'formapress-crm' ); ?></strong><br>
+								<a href="#" class="zqpm-create-new-session" target="_blank">
+									<?php esc_html_e( '+ Créer une nouvelle session', 'formapress-crm' ); ?>
+								</a>
+							</p>
+						</div>
+					</div>
+
+					<!-- Step 3: Confirmation -->
+					<div class="zqpm-step" data-step="3" style="display: none;">
+						<div class="zqpm-step-header">
+							<h3><?php esc_html_e( 'Étape 3 : Confirmer la création', 'formapress-crm' ); ?></h3>
+							<p class="description"><?php esc_html_e( 'Vérifiez les informations avant de créer le Suivi de session.', 'formapress-crm' ); ?></p>
+						</div>
+						<div class="zqpm-summary">
+							<dl>
+								<dt><?php esc_html_e( 'Formation :', 'formapress-crm' ); ?></dt>
+								<dd class="zqpm-summary-formation">—</dd>
+								<dt><?php esc_html_e( 'Session :', 'formapress-crm' ); ?></dt>
+								<dd class="zqpm-summary-session">—</dd>
+							</dl>
+						</div>
+					</div>
+
+					<div class="zqpm-error-message" style="display: none;"></div>
+				</div>
+				<div class="zqpm-modal-footer">
+					<button type="button" class="button button-secondary zqpm-btn-back" style="display: none;">
+						<?php esc_html_e( '← Retour', 'formapress-crm' ); ?>
+					</button>
+					<button type="button" class="button button-secondary cancel-zqpm-creation">
+						<?php esc_html_e( 'Annuler', 'formapress-crm' ); ?>
+					</button>
+					<button type="button" class="button button-primary zqpm-btn-next">
+						<?php esc_html_e( 'Suivant →', 'formapress-crm' ); ?>
+					</button>
+					<button type="button" class="button button-primary confirm-zqpm-creation" style="display: none;">
+						<?php esc_html_e( 'Créer le Suivi de session', 'formapress-crm' ); ?>
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Nested Session Creation Modal -->
+		<div id="zqpm-create-session-modal" class="zqpm-modal zqpm-nested-modal" style="display: none;">
+			<div class="zqpm-modal-overlay"></div>
+			<div class="zqpm-modal-content zqpm-nested-content">
+				<div class="zqpm-modal-header">
+					<h2 class="zqpm-modal-title"><?php esc_html_e( 'Créer une nouvelle session', 'formapress-crm' ); ?></h2>
+					<button type="button" class="zqpm-modal-close">&times;</button>
+				</div>
+				<div class="zqpm-modal-body">
+					<!-- Session form will be loaded here via AJAX -->
+				</div>
+			</div>
+		</div>
+
 	</div>
 	<?php
 }
@@ -926,14 +1036,15 @@ function formapress_crm_ajax_search_entities() {
 			);
 		}
 	} elseif ( 'company' === $entity_type ) {
-		// Search zqpm_entreprise posts.
+		// Search crm_company posts (v2 only, no legacy support).
 		$query = new WP_Query(
 			array(
-				'post_type'      => 'zqpm_entreprise',
+				'post_type'      => 'crm_company',
 				's'              => $search,
 				'posts_per_page' => 20,
 				'orderby'        => 'title',
 				'order'          => 'ASC',
+				'post_status'    => 'publish',
 			)
 		);
 
@@ -1385,3 +1496,68 @@ function formapress_crm_ajax_add_activity() {
 	);
 }
 add_action( 'wp_ajax_formapress_add_activity', 'formapress_crm_ajax_add_activity' );
+
+/**
+ * AJAX handler: Get contacts for a specific company (v2 only, no legacy support).
+ * Used by both opportunity and invoice editors.
+ */
+function formapress_crm_ajax_get_company_contacts() {
+	// Verify nonce - accept either opportunity or invoice editor nonce.
+	$nonce_valid = false;
+	if ( isset( $_POST['nonce'] ) ) {
+		$nonce_valid = wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'formapress_opportunity_editor' )
+			|| wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), 'formapress_invoice_editor' );
+	}
+
+	if ( ! $nonce_valid ) {
+		wp_send_json_error( array( 'message' => 'Nonce verification failed' ) );
+	}
+
+	$company_id = isset( $_POST['company_id'] ) ? absint( $_POST['company_id'] ) : 0;
+
+	if ( ! $company_id ) {
+		wp_send_json_error( array( 'message' => 'Invalid company ID' ) );
+	}
+
+	// Debug: Log the company ID.
+	error_log( 'FormaPress: Getting contacts for company ID: ' . $company_id );
+
+	$args = array(
+		'post_type'      => 'crm_person',
+		'posts_per_page' => -1,
+		'post_status'    => 'publish',
+		'tax_query'      => array(
+			array(
+				'taxonomy' => 'person_type',
+				'field'    => 'slug',
+				'terms'    => 'company_contact',
+			),
+		),
+		'meta_query'     => array(
+			array(
+				'key'     => '_crm_company_id',
+				'value'   => $company_id,
+				'compare' => '=',
+			),
+		),
+	);
+
+	$contacts = get_posts( $args );
+	$results  = array();
+
+	// Debug: Log contacts found.
+	error_log( 'FormaPress: Found ' . count( $contacts ) . ' contacts for company ' . $company_id );
+
+	foreach ( $contacts as $contact ) {
+		$results[] = array(
+			'id'   => $contact->ID,
+			'text' => $contact->post_title,
+		);
+	}
+
+	// Debug: Log results.
+	error_log( 'FormaPress: Returning ' . count( $results ) . ' contacts' );
+
+	wp_send_json_success( array( 'contacts' => $results ) );
+}
+add_action( 'wp_ajax_formapress_crm_get_company_contacts', 'formapress_crm_ajax_get_company_contacts' );

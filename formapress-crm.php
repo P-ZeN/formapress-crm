@@ -117,6 +117,7 @@ require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/invoice-pdf-generator.php'; /
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/invoice-email-sender.php'; // Invoice email sending with tracking.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/financial-reports-ajax.php'; // Financial reports AJAX handlers.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/financial-reports-export.php'; // Financial reports export (Excel, BPF).
+require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/opportunity-zqpm-integration.php'; // Opportunity → ZQPM → Invoice linkage.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-pdf-generation.php'; // PDF generation with CRM context.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-send-communication.php'; // Email sending with PDF attachments.
 require_once FORMAPRESS_CRM_PLUGIN_DIR . 'includes/crm-communication-modal.php'; // Communication modal UI.
